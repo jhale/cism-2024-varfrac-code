@@ -1,8 +1,6 @@
 import gmsh
-import numpy as np
 from mpi4py import MPI
-from dolfinx.io import gmshio, XDMFFile
-import dolfinx.plot
+from dolfinx.io import gmshio
 
 
 def generate_mesh_with_crack(
@@ -14,9 +12,8 @@ def generate_mesh_with_crack(
     dist_max=0.3,
     refinement_ratio=10,
     gdim=2,
-    verbosity=4
+    verbosity=4,
 ):
-
     mesh_comm = MPI.COMM_WORLD
     model_rank = 0
     gmsh.initialize()
@@ -65,16 +62,14 @@ def generate_mesh_with_crack(
         surface_entities = [entity[1] for entity in model.getEntities(2)]
         model.addPhysicalGroup(2, surface_entities, tag=cell_tags["all"])
         model.setPhysicalName(2, 2, "Rectangle surface")
-        gmsh.option.setNumber('General.Verbosity', verbosity)
+        gmsh.option.setNumber("General.Verbosity", verbosity)
         model.mesh.generate(gdim)
 
-        for (key, value) in facet_tags.items():
+        for key, value in facet_tags.items():
             model.addPhysicalGroup(1, [value], tag=value)
             model.setPhysicalName(1, value, key)
 
-        msh, cell_tags, facet_tags = gmshio.model_to_mesh(
-            model, mesh_comm, model_rank, gdim=gdim
-        )
+        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, mesh_comm, model_rank, gdim=gdim)
         gmsh.finalize()
         msh.name = "rectangle"
         cell_tags.name = f"{msh.name}_cells"

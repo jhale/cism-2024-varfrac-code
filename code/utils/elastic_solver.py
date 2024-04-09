@@ -1,21 +1,20 @@
 import sys
+
 sys.path.append("../python")
 
 # Import required libraries
-import matplotlib.pyplot as plt
 import numpy as np
 
 import dolfinx.fem as fem
 import dolfinx.mesh as mesh
 import dolfinx.io as io
-import dolfinx.plot as plot
 import ufl
 
 from mpi4py import MPI
-from petsc4py import PETSc
 from petsc4py.PETSc import ScalarType
 
 from meshes import generate_mesh_with_crack
+
 
 def solve_elasticity(
     nu=0.3,
@@ -28,7 +27,7 @@ def solve_elasticity(
     refinement_ratio=10,
     dist_min=0.2,
     dist_max=0.3,
-    verbosity=10
+    verbosity=10,
 ):
     msh, mt, ft = generate_mesh_with_crack(
         Lcrack=Lcrack,
@@ -38,7 +37,7 @@ def solve_elasticity(
         refinement_ratio=refinement_ratio,  # how much it is refined at the tip zone
         dist_min=dist_min,  # radius of tip zone
         dist_max=dist_max,  # radius of the transition zone
-        verbosity=verbosity
+        verbosity=verbosity,
     )
     element = ufl.VectorElement("Lagrange", msh.ufl_cell(), degree=1, dim=2)
     V = fem.FunctionSpace(msh, element)
@@ -57,9 +56,7 @@ def solve_elasticity(
     )
 
     right_facets = mesh.locate_entities_boundary(msh, msh.topology.dim - 1, right)
-    right_dofs_x = fem.locate_dofs_topological(
-        V.sub(0), msh.topology.dim - 1, right_facets
-    )
+    right_dofs_x = fem.locate_dofs_topological(V.sub(0), msh.topology.dim - 1, right_facets)
     bc_bottom = fem.dirichletbc(ScalarType(0), bottom_no_crack_dofs_y, V.sub(1))
     bc_right = fem.dirichletbc(ScalarType(0), right_dofs_x, V.sub(0))
     bcs = [bc_bottom, bc_right]
@@ -123,8 +120,6 @@ if __name__ == "__main__":
         dist_max=0.3,
     )
 
-    with io.XDMFFile(
-        MPI.COMM_WORLD, "output2/elasticity-demo.xdmf", "w"
-    ) as file:
+    with io.XDMFFile(MPI.COMM_WORLD, "output2/elasticity-demo.xdmf", "w") as file:
         file.write_mesh(uh.function_space.mesh)
         file.write_function(uh)

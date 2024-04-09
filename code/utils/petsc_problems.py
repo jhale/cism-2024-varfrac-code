@@ -1,10 +1,9 @@
-
 import ufl
 from dolfinx import fem
 from petsc4py import PETSc
 
-class SNESProblem:
 
+class SNESProblem:
     def __init__(self, F, u, bcs, J=None):
         V = u.function_space
         du = ufl.TrialFunction(V)
