@@ -93,7 +93,7 @@ import pyvista
 
 pyvista.start_xvfb(wait=0.1)
 pyvista.set_jupyter_backend("static")
-grid = pyvista.UnstructuredGrid(*plot.create_vtk_mesh(msh))
+grid = pyvista.UnstructuredGrid(*plot.vtk_mesh(msh))
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True)
 plotter.camera_position = "xy"
