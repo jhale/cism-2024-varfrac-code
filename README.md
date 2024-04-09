@@ -6,8 +6,10 @@
 ### Authors
 
 Jack S. Hale, University of Luxembourg.
+
 Laura de Lorenzis, ETH Zurich.
-Corrado Maurini, University of Luxembourg.
+
+Corrado Maurini, Sorbonne Université.
 
 ### Credits
 
