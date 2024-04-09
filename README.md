@@ -3,14 +3,6 @@
 
 ### Introduction
 
-### Building
-
-To build this notebook run:
-
-    docker run -v $(pwd):/shared -w /shared -ti dolfinx/dolfinx:nightly
-    pip install jupyter-book
-    jupyter-book build .
-
 ### Authors
 
 Jack S. Hale, University of Luxembourg.
@@ -18,6 +10,24 @@ Jack S. Hale, University of Luxembourg.
 Laura de Lorenzis, ETH Zurich.
 
 Corrado Maurini, Sorbonne Université.
+
+### Developer instructions
+
+#### Building
+
+To build this notebook run:
+
+    docker run -v $(pwd):/shared -w /shared -ti dolfinx/dolfinx:nightly
+    pip install jupyter-book
+    jupyter-book build .
+
+#### Linting and formatting
+
+To lint and format using ruff:
+
+    pip install ruff
+    ruff check .
+    ruff format .
 
 ### Credits
 
