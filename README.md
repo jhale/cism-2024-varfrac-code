@@ -3,6 +3,14 @@
 
 ### Introduction
 
+### Building
+
+To build this notebook run:
+
+    docker run -v $(pwd):/shared -w /shared -ti dolfinx/dolfinx:nightly
+    pip install jupyter-book
+    jupyter-book build .
+
 ### Authors
 
 Jack S. Hale, University of Luxembourg.
