@@ -46,7 +46,10 @@
 # Import required libraries
 import numpy as np
 
+import basix
+import basix.ufl
 import dolfinx.fem as fem
+import dolfinx.fem.petsc
 import dolfinx.mesh as mesh
 import dolfinx.io as io
 import dolfinx.plot as plot
@@ -57,8 +60,10 @@ from mpi4py import MPI
 # %% [markdown]
 # Let us generate a mesh using gmsh (http://gmsh.info/).
 # The mesh is refined around the crack tip.
-# The function to generate the mesh is reported in the external file `meshes.py` located in the directory `python`.
-# To import it, we add `python` to the path where the system is looking for functions to import
+# The function to generate the mesh is reported in the external file
+# `meshes.py` located in the directory `../utils`.
+# To import it, we add `../utils` to the path where the system is looking for
+# possible imports
 
 # %%
 import sys
@@ -106,8 +111,8 @@ if not pyvista.OFF_SCREEN:
 # We use here linear Lagrange triangle elements
 
 # %%
-element = ufl.VectorElement("Lagrange", msh.ufl_cell(), degree=1, dim=2)
-V = fem.FunctionSpace(msh, element)
+element = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(2,))
+V = fem.functionspace(msh, element)
 
 
 # %% [markdown]
@@ -119,7 +124,9 @@ V = fem.FunctionSpace(msh, element)
 # - block the vertical component $u_1$ of the displacement on the part of the bottom boundary without crack
 # - block the horizontal component $u_0$ on the right boundary
 #
-# We first get the facets to block on the boundary (`dolfinx.mesh.locate_entities_boundary`) and then the corresponding dofs (`dolfinx.fem.locate_dofs_topological`)
+# We first get the facets to block on the boundary
+# (`dolfinx.mesh.locate_entities_boundary`) and then the corresponding dofs
+# (`dolfinx.fem.locate_dofs_topological`)
 
 
 # %%
@@ -131,27 +138,29 @@ def right(x):
     return np.isclose(x[0], Lx)
 
 
-# locate the facets of the mesh that are on the bottom boundary and not on the crack
-# get the corresponding dofs and define the bc object
+# Locate the facets of the mesh that are on the bottom boundary and not on the
+# crack get the corresponding dofs and define the bc object
 bottom_no_crack_facets = mesh.locate_entities_boundary(msh, msh.topology.dim - 1, bottom_no_crack)
 bottom_no_crack_dofs_y = fem.locate_dofs_topological(
     V.sub(1), msh.topology.dim - 1, bottom_no_crack_facets
 )
 bc_bottom = fem.dirichletbc(0.0, bottom_no_crack_dofs_y, V.sub(1))
 
-# the same for the right boundary
+# The same for the right boundary
 right_facets = mesh.locate_entities_boundary(msh, msh.topology.dim - 1, right)
 right_dofs = fem.locate_dofs_topological(V.sub(0), msh.topology.dim - 1, right_facets)
 bc_right = fem.dirichletbc(0.0, right_dofs, V.sub(0))
 
-# collect the bcs in a list
+# Collect the bcs in a list
 bcs = [bc_bottom, bc_right]
 
 # %% [markdown]
 # ## Define the bulk and surface mesures
-# The bulk (`dx`) and surface (`ds`) measures are used by `ufl` to write variational form with integral over the domain or the boundary, respectively.
+# The bulk (`dx`) and surface (`ds`) measures are used by `ufl` to write
+# variational form with integral over the domain or the boundary, respectively.
 #
-# In this example the surface measure `ds` includes tags to specify Neumann bcs: `ds(1)` will mean the integral on the top boundary.
+# In this example the surface measure `ds` includes tags to specify Neumann
+# bcs: `ds(1)` will mean the integral on the top boundary.
 
 # %%
 dx = ufl.Measure("dx", domain=msh)
@@ -162,15 +171,17 @@ ds = ufl.Measure("ds", subdomain_data=mt)
 # %% [markdown]
 # ## Define the variational problem
 #
-# We specify the problem to solve though the weak formulation written in the [ufl](https://fenics.readthedocs.io/projects/ufl/en/latest/) syntax by giving the bilinear $a(u,v)$ and linear forms $L(v)$ in
-# the weak formulation:
+# We specify the problem to solve though the weak formulation written in the
+# [ufl](https://fenics.readthedocs.io/projects/ufl/en/latest/) syntax by giving
+# the bilinear $a(u,v)$ and linear forms $L(v)$ in the weak formulation:
 #
-# find the *trial function* $u$ such that for all *test function* $v$
+# Find the *trial function* $u$ such that for all *test functions* $v$
 # $a(u,v)=L(v)$ with
 #
 # $$
-# a(u,v)=\int_{\Omega\setminus\Gamma}\sigma(\varepsilon(u))\cdot \varepsilon(v)\,\mathrm{d}x,
-# \quad L(v)=\int_\Omega b\cdot v \,\mathrm{d}x + \int_{\partial_N\Omega} f\cdot v \,\mathrm{d}s
+# a(u,v)=\int_{\Omega\setminus\Gamma}\sigma(\varepsilon(u))\cdot
+# \varepsilon(v)\,\mathrm{d}x, \quad L(v)=\int_\Omega b\cdot v \,\mathrm{d}x +
+# \int_{\partial_N\Omega} f\cdot v \,\mathrm{d}s
 # $$
 
 # %% [markdown]
@@ -222,7 +233,9 @@ def L(v):
 
 # %% [markdown]
 # ## Define the linear problem and solve
-# We solve the problem using a direct solver. The class `dolfinx.fem.LinearProblem` assemble the stiffness matrix and load vector, apply the boundary conditions, and solve the linear system.
+# We solve the problem using a direct solver. The class
+# `dolfinx.fem.LinearProblem` assemble the stiffness matrix and load vector,
+# apply the boundary conditions, and solve the linear system.
 
 # %%
 problem = fem.petsc.LinearProblem(
@@ -242,7 +255,8 @@ energy = fem.assemble_scalar(fem.form(0.5 * a(uh, uh) - L(uh)))
 print(f"The potential energy is {energy:2.3e}")
 
 # %% [markdown]
-# We can save the results to a file, that we can open with `paraview` (https://www.paraview.org/)
+# We can save the results to a file, that we can open with `paraview`
+# (https://www.paraview.org/)
 
 # %%
 with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
@@ -252,13 +266,15 @@ with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
 # %% [markdown]
 # ## Stress computation
 #
-# We calculate here the Von Mises stress by interpolating the corresponding ufl expression, see https://jorgensd.github.io/dolfinx-tutorial/chapter2/linearelasticity_code.html#stress-computation
+# We calculate here the Von Mises stress by interpolating the corresponding ufl
+# expression, see
+# https://jorgensd.github.io/dolfinx-tutorial/chapter2/linearelasticity_code.html#stress-computation
 
 # %%
 sigma_iso = 1.0 / 3 * ufl.tr(sigma(eps(uh))) * ufl.Identity(len(uh))
 sigma_dev = sigma(eps(uh)) - sigma_iso
 von_Mises = ufl.sqrt(3.0 / 2 * ufl.inner(sigma_dev, sigma_dev))
-V_von_mises = fem.FunctionSpace(msh, ("DG", 0))
+V_von_mises = fem.functionspace(msh, ("DG", 0))
 stress_expr = fem.Expression(von_Mises, V_von_mises.element.interpolation_points())
 vm_stress = fem.Function(V_von_mises)
 vm_stress.interpolate(stress_expr)
@@ -278,43 +294,36 @@ plotter = warp_plot_2d(
 if not pyvista.OFF_SCREEN:
     plotter.show()
 
+with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
+    file.write_mesh(uh.function_space.mesh)
+    file.write_function(uh)
+
+
 # %% [markdown]
-# We can now wrap all the code in a the external module, so that we can resuse the solver later
+# We can now wrap all the code in a the external module, so that we can resuse
+# the solver later
 #
-# We define in `elastic_solver.py` a function `solve_elasticity` taking as input  the crack length `Lcrack`, the geoemtric and mesh parameters, the Poisson ratio `nu`, and giving us as output the solution field `uh` and the related potential energy `energy`
+# We define in `elastic_solver.py` a function `solve_elasticity` taking as
+# input  the crack length `Lcrack`, the geoemtric and mesh parameters, the
+# Poisson ratio `nu`, and giving us as output the solution field `uh` and the
+# related potential energy `energy`
 #
-# The returned `uh` and `energy` will be calculated assuming a force density `f=1` on the top surface and a Young modulus `E=1`. This is without loss of generality, see the exercise below.
+# The returned `uh` and `energy` will be calculated assuming a force density
+# `f=1` on the top surface and a Young modulus `E=1`. This is without loss of
+# generality, see the exercise below.
 #
 
 # %% [markdown]
 # **Exercise.**
 #
-# Let be $u^{*}$ and $P^{*}$ the displacement field obtained on a domain $\Omega^*=[0,1]\times[0,\varrho]$ for a Young module $E^*=1$ and a load $f^*=1$ applied on the top surface.
-# Determine by dimensional analysis the analytical formulas giving the
-# displacement $u$ and the potential energy $P$ for any other value of  $E$,  load $f$, and for any domain $\Omega=[0,L]\times[0,\varrho\, L]$  obtained by a rescaling of $\Omega^*$ with a length-scale $L$.
-# Deduce that we can, without loss of generality, perform computation with $E=1$, $f=1$ and $L=1$.
-
-# %%
-from mpi4py import MPI
-from elastic_solver import solve_elasticity
-
-uh, energy, _ = solve_elasticity(
-    nu=0.3,
-    E=1,
-    load=1,
-    Lx=1,
-    Ly=0.5,
-    Lcrack=0.3,
-    lc=0.1,
-    refinement_ratio=10,
-    dist_min=0.2,
-    dist_max=0.3,
-    verbosity=1,
-)
-
-with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
-    file.write_mesh(uh.function_space.mesh)
-    file.write_function(uh)
+# Let be $u^{*}$ and $P^{*}$ the displacement field obtained on a domain
+# $\Omega^*=[0,1]\times[0,\varrho]$ for a Young module $E^*=1$ and a load
+# $f^*=1$ applied on the top surface. Determine by dimensional analysis the
+# analytical formulas giving the displacement $u$ and the potential energy $P$
+# for any other value of  $E$,  load $f$, and for any domain
+# $\Omega=[0,L]\times[0,\varrho\, L]$  obtained by a rescaling of $\Omega^*$
+# with a length-scale $L$. Deduce that we can, without loss of generality,
+# perform computation with $E=1$, $f=1$ and $L=1$.
 
 
 # %%

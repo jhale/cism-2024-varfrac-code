@@ -44,13 +44,12 @@ def plot_damage_state(state, load=None):
 
 
 def warp_plot_2d(u, cell_field=None, field_name="Field", factor=1.0, backend="none", **kwargs):
-    # "ipyvtklink", "panel", "ipygany", "static", "pythreejs", "none"
     msh = u.function_space.mesh
 
     # Create plotter and pyvista grid
     plotter = pyvista.Plotter()
 
-    topology, cell_types, geometry = plot.create_vtk_mesh(msh)
+    topology, cell_types, geometry = plot.vtk_mesh(msh)
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
 
     # Attach vector values to grid and warp grid by vector
@@ -62,7 +61,6 @@ def warp_plot_2d(u, cell_field=None, field_name="Field", factor=1.0, backend="no
         warped_grid.cell_data[field_name] = cell_field.vector.array
         warped_grid.set_active_scalars(field_name)
     plotter.add_mesh(warped_grid, **kwargs)
-    # plotter.show_axes()
     plotter.camera_position = "xy"
 
     return plotter
