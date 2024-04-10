@@ -11,7 +11,7 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-    container: dolfinx/lab:nightly
+    container: ghcr.io/fenics/dolfinx/lab:nightly
     steps:
       - uses: actions/checkout@v4
       
