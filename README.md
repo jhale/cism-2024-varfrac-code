@@ -1,9 +1,8 @@
-# cism-varfrac-code
-## FEniCSx examples at CISM 2024
+# FEniCSx examples at CISM 2024
 
-### Introduction
+## Introduction
 
-### Authors
+## Authors
 
 Jack S. Hale, University of Luxembourg.
 
@@ -11,9 +10,9 @@ Laura de Lorenzis, ETH Zurich.
 
 Corrado Maurini, Sorbonne Université.
 
-### Developer instructions
+## Developer instructions
 
-#### Building
+### Building
 
 To build this notebook run:
 
@@ -21,7 +20,7 @@ To build this notebook run:
     pip install jupyter-book
     jupyter-book build .
 
-#### Linting and formatting
+### Linting and formatting
 
 To lint and format using ruff:
 

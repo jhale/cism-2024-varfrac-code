@@ -1,2 +1,5 @@
 format: jb-book
 root: README.md
+
+chapters:
+- file: "code/linear_elasticity/linear_elasticity.py"
