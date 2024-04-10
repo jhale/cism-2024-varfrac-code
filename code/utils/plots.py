@@ -14,7 +14,7 @@ def plot_damage_state(state, load=None):
 
     plotter = pyvista.Plotter(title="Damage state", window_size=[800, 300], shape=(1, 2))
 
-    topology, cell_types, geometry = plot.create_vtk_mesh(domain)
+    topology, cell_types, geometry = plot.create_vtk_mesh(mesh)
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
 
     plotter.subplot(0, 0)
@@ -27,7 +27,7 @@ def plot_damage_state(state, load=None):
     vals[:, :2] = vals_2D
     grid["u"] = vals
     warped = grid.warp_by_vector("u", factor=0.1)
-    actor_1 = plotter.add_mesh(warped, show_edges=False)
+    _ = plotter.add_mesh(warped, show_edges=False)
     plotter.view_xy()
 
     plotter.subplot(0, 1)

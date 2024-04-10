@@ -10,8 +10,6 @@ def mesh_plotter(mesh):
 
         start_xvfb(wait=0.5)
     # Set some global options for all plots
-    transparent = False
-    figsize = 100
     pyvista.rcParams["background"] = [0.5, 0.5, 0.5]
     topology, cell_types, geometry = dolfinx.plot.create_vtk_mesh(mesh, mesh.topology.dim)
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)

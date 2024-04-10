@@ -4,7 +4,6 @@ from dolfinx import geometry
 
 def evaluate_on_points(function, points):
     domain = function.function_space.mesh
-    comm = domain.comm
     # comm
     bb_tree = geometry.BoundingBoxTree(domain, domain.topology.dim)
     cells = []
