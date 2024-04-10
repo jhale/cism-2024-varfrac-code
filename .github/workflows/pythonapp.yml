@@ -11,10 +11,14 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-    container: dolfinx/dolfinx:nightly
+    container: dolfinx/lab:nightly
     steps:
       - uses: actions/checkout@v4
       
+      - name: Install dependencies
+        run: |
+          python3 -m pip install -r requirements-docs.txt
+
       - name: ruff check and format
         run: |
           ruff check .

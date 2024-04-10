@@ -16,8 +16,8 @@ Corrado Maurini, Sorbonne Université.
 
 To build this notebook run:
 
-    docker run -v $(pwd):/shared -w /shared -ti dolfinx/dolfinx:nightly
-    pip install jupyter-book
+    docker run -v $(pwd):/shared -w /shared -ti dolfinx/lab:nightly
+    pip install -r requirements-docs.txt
     jupyter-book build .
 
 ### Linting and formatting
