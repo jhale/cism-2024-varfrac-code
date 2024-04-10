@@ -28,6 +28,19 @@ To lint and format using ruff:
     ruff check .
     ruff format .
 
+### Converting .ipynb to .py
+
+This repository stores stores demos in percent-formatted .py files that can
+then be converted to e.g. notebooks on demand. To convert legacy notebooks e.g.
+`notebook.ipynb` to this format automatically use:
+
+    pip install jupytext
+    jupytext --to py notebook.ipynb
+
+which will create a file `notebook.py` which you can then edit with any text
+editor. For more information see
+[here](https://jupytext.readthedocs.io/en/latest/formats-scripts.html#).
+
 ### Credits
 
 This work includes elements from [Computational fracture mechanics examples
