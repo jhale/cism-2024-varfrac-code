@@ -49,7 +49,7 @@ import numpy as np
 import basix
 import basix.ufl
 import dolfinx.fem as fem
-import dolfinx.fem.petsc # noqa: F401
+import dolfinx.fem.petsc  # noqa: F401
 import dolfinx.mesh as mesh
 import dolfinx.io as io
 import dolfinx.plot as plot
@@ -94,7 +94,7 @@ msh, mt, ft = generate_mesh_with_crack(
 # - https://docs.fenicsproject.org/dolfinx/main/python/demos/pyvista/demo_pyvista.py.html
 
 # %%
-import pyvista # noqa: E402
+import pyvista  # noqa: E402
 
 pyvista.start_xvfb(wait=0.1)
 pyvista.set_jupyter_backend("static")
@@ -280,7 +280,7 @@ vm_stress = fem.Function(V_von_mises)
 vm_stress.interpolate(stress_expr)
 
 # %%
-from plots import warp_plot_2d # noqa: E402
+from plots import warp_plot_2d  # noqa: E402
 
 plotter = warp_plot_2d(
     uh,
