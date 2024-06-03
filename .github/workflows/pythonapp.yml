@@ -11,7 +11,7 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-    container: ghcr.io/fenics/dolfinx/lab:nightly
+    container: ghcr.io/fenics/dolfinx/lab:0.8.0
     
     env:
       PYVISTA_TRAME_SERVER_PROXY_PREFIX: '/proxy/'
