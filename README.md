@@ -16,9 +16,13 @@ Corrado Maurini, Sorbonne Université.
 
 To build this notebook run:
 
-    docker run -v $(pwd):/shared -w /shared -ti dolfinx/lab:nightly
+    docker run -v $(pwd):/shared -w /shared -ti --entry-point /bin/bash dolfinx/lab:v0.8.0 
     pip install -r requirements-docs.txt
     jupyter-book build .
+
+and then on the host:
+
+    open _build/html/index.html
 
 ### Linting and formatting
 
@@ -40,6 +44,13 @@ then be converted to e.g. notebooks on demand. To convert legacy notebooks e.g.
 which will create a file `notebook.py` which you can then edit with any text
 editor. For more information see
 [here](https://jupytext.readthedocs.io/en/latest/formats-scripts.html#).
+
+### pyvista on ARM
+
+To install pyvista in ARM docker:
+
+    python3 -m pip install "https://github.com/finsberg/vtk-aarch64/releases/download/vtk-9.2.6-cp310/vtk-9.2.6.dev0-cp310-cp310-linux_aarch64.whl"
+    python3 -m pip install pyvista
 
 ### Credits
 
