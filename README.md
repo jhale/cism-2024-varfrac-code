@@ -14,7 +14,7 @@ Corrado Maurini, Sorbonne Université.
 
 ### Building
 
-To build this notebook run:
+To build this Jupyter book run:
 
     docker run -v $(pwd):/shared -w /shared -ti --entry-point /bin/bash dolfinx/lab:v0.8.0 
     pip install -r requirements-docs.txt
@@ -23,6 +23,9 @@ To build this notebook run:
 and then on the host:
 
     open _build/html/index.html
+
+On ARM it is necessary to install `pyvista` from a custom binary wheel, see
+below.
 
 ### Linting and formatting
 
