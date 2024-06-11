@@ -44,7 +44,6 @@
 # We start importing the required libraries.
 
 # %%
-# Import required libraries
 import numpy as np
 
 import basix
@@ -59,9 +58,9 @@ import ufl
 from mpi4py import MPI
 
 # %% [markdown]
-# Let us generate a mesh using gmsh (http://gmsh.info/).
+# Let us generate a mesh using [gmsh](http://gmsh.info/).
 # The mesh is refined around the crack tip.
-# The function to generate the mesh is reported in the external file
+# The function to generate the mesh is implemented in the external file
 # `meshes.py` located in the directory `../utils`.
 # To import it, we add `../utils` to the path where the system is looking for
 # possible imports.
