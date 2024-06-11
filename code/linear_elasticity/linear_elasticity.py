@@ -12,9 +12,15 @@
 # *Authors:*
 #  - Laura De Lorenzis (ETH Zürich)
 #  - Corrado Maurini (Sorbonne Université)
+#  - Jack S. Hale (University of Luxembourg)
 #
 # This notebook serves as a tutorial to solve a problem of linear elasticity
-# using DOLFINx (FEniCS).
+# using DOLFINx (the problem solving environment of the FEniCS Project).
+#
+# DOLFINx is library that allows for efficient parallel computation using the
+# Message Passing Interface (MPI). For the sake of simplicity, we assume here
+# to work on a single process and will not use MPI-related commands. Using
+# DOLFINx with MPI will be covered in a later session.
 #
 # You can find a tutorial and useful resources for DOLFINx at the following links
 #
@@ -25,21 +31,11 @@
 #   for linear elasticity
 #
 # We consider an elastic slab $\Omega$ with a straight crack $\Gamma$ subject
-# to a mode I loading by an applied traction force $f$, see figure.
-#
-# Because of the symmetry, we can consider only half of the domain in the
-# computation.
+# to a mode I loading by an applied traction force $f$. Because of symmetry, we
+# can consider only half of the domain in the computation.
 #
 # ![title](./domain.png)
 #
-# We solve the problem of linear elasticity with the finite element method,
-# implemented using DOLFINx.
-#
-# DOLFINx is library that allows for efficient parallel computation using the
-# Message Passing Interface (MPI). For the sake of simplicity, we assume here
-# to work on a single process and will not use MPI-related commands. Using
-# DOLFINx with MPI will be covered in a later session.
-
 # %% [markdown]
 # We start importing the required libraries.
 
@@ -113,18 +109,19 @@ if not pyvista.OFF_SCREEN:
 # We use here linear Lagrange triangle elements
 
 # %%
-element = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(2,))
+element = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(mesh.geometry.dim,))
 V = fem.functionspace(msh, element)
 
 
 # %% [markdown]
 # ## Dirichlet boundary conditions
 #
-# We define below the functions to impose the Dirichlet boundary conditions.
+# We now define the Dirichlet boundary conditions.
 #
 # In our case we want to
-# - block the vertical component $u_1$ of the displacement on the part of the bottom boundary without crack
-# - block the horizontal component $u_0$ on the right boundary
+# - block the vertical component $u_y$ of the displacement on the part of the
+#   bottom boundary without the crack.
+# - block the horizontal component $u_x$ on the right boundary
 #
 # We first get the facets to block on the boundary
 # (`dolfinx.mesh.locate_entities_boundary`) and then the corresponding dofs
@@ -138,13 +135,14 @@ def right(x):
     return np.isclose(x[0], Lx)
 
 
-# Locate the facets of the mesh that are on the bottom boundary and not on the
-# crack.
+# Locate the facets (edges) of the mesh that are on the bottom boundary and not
+# on the crack.
 bottom_no_crack_facets = mesh.locate_entities_boundary(msh, msh.topology.dim - 1, bottom_no_crack)
-# Get the corresponding dofs and define the bc object
+# Get the corresponding degrees of freedom.
 bottom_no_crack_dofs_y = fem.locate_dofs_topological(
     V.sub(1), msh.topology.dim - 1, bottom_no_crack_facets
 )
+# And define the Dirichlet boundary condition object.
 bc_bottom = fem.dirichletbc(0.0, bottom_no_crack_dofs_y, V.sub(1))
 
 # And same for the right boundary
