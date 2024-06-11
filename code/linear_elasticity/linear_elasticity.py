@@ -109,7 +109,7 @@ if not pyvista.OFF_SCREEN:
 # We use here linear Lagrange triangle elements
 
 # %%
-element = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(mesh.geometry.dim,))
+element = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(msh.geometry.dim,))
 V = fem.functionspace(msh, element)
 
 
@@ -301,13 +301,13 @@ with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
 
 
 # %% [markdown]
-# We can now wrap all the code in a the external module, so that we can resuse
-# the solver later
+# We can now wrap all the code in an external module, so that we can re-use the
+# solver later.
 #
 # We define in `elastic_solver.py` a function `solve_elasticity` taking as
-# input  the crack length `Lcrack`, the geoemtric and mesh parameters, the
+# input the crack length `Lcrack`, the geoemtric and mesh parameters, the
 # Poisson ratio `nu`, and giving us as output the solution field `uh` and the
-# related potential energy `energy`
+# related potential energy `energy`.
 #
 # The returned `uh` and `energy` will be calculated assuming a force density
 # `f=1` on the top surface and a Young modulus `E=1`. This is without loss of
