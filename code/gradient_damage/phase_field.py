@@ -9,7 +9,9 @@
 # + [markdown]
 # # Gradient damage as phase-field models of brittle fracture: dolfinx example
 #
-# *Authors: Jack Hale, Corrado Maurini, 2021*
+# *Authors:*
+# - Jack S. Hale (University of Luxembourg)
+# - Corrado Maurini (Sorbonnes Université)
 #
 # In this notebook we implement a numerical solution of the quasi-static
 # evolution problem for gradient damage models, and show how they can be used

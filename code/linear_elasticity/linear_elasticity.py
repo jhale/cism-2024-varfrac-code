@@ -10,8 +10,8 @@
 # # Linear Elasticity
 #
 # *Authors:*
-#  - *Laura De Lorenzis (ETH Zürich)*
-#  - *Corrado Maurini (corrado.maurini@sorbonne-universite.fr)*
+#  - Laura De Lorenzis (ETH Zürich)
+#  - Corrado Maurini (Sorbonne Université)
 #
 # This notebook serves as a tutorial to solve a problem of linear elasticity using DOLFINx (FEniCS).
 #
@@ -324,6 +324,3 @@ with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
 # $\Omega=[0,L]\times[0,\varrho\, L]$  obtained by a rescaling of $\Omega^*$
 # with a length-scale $L$. Deduce that we can, without loss of generality,
 # perform computation with $E=1$, $f=1$ and $L=1$.
-
-
-# %%
