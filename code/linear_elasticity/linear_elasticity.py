@@ -81,8 +81,8 @@ dist_max = 0.3
 msh, mt, ft = generate_mesh_with_crack(
     Lcrack=Lcrack,
     Ly=Ly,
-    lc=lc,  # caracteristic length of the mesh
-    refinement_ratio=10,  # how much it is refined at the tip zone
+    lc=lc,  # characteristic length of the mesh
+    refinement_ratio=10,  # how much to refine near the tip zone
     dist_min=dist_min,  # radius of tip zone
     dist_max=dist_max,  # radius of the transition zone
     verbosity=1,
@@ -129,8 +129,6 @@ V = fem.functionspace(msh, element)
 # We first get the facets to block on the boundary
 # (`dolfinx.mesh.locate_entities_boundary`) and then the corresponding dofs
 # (`dolfinx.fem.locate_dofs_topological`)
-
-
 # %%
 def bottom_no_crack(x):
     return np.logical_and(np.isclose(x[1], 0.0), x[0] > Lcrack)
@@ -141,14 +139,15 @@ def right(x):
 
 
 # Locate the facets of the mesh that are on the bottom boundary and not on the
-# crack get the corresponding dofs and define the bc object
+# crack.
 bottom_no_crack_facets = mesh.locate_entities_boundary(msh, msh.topology.dim - 1, bottom_no_crack)
+# Get the corresponding dofs and define the bc object
 bottom_no_crack_dofs_y = fem.locate_dofs_topological(
     V.sub(1), msh.topology.dim - 1, bottom_no_crack_facets
 )
 bc_bottom = fem.dirichletbc(0.0, bottom_no_crack_dofs_y, V.sub(1))
 
-# The same for the right boundary
+# And same for the right boundary
 right_facets = mesh.locate_entities_boundary(msh, msh.topology.dim - 1, right)
 right_dofs = fem.locate_dofs_topological(V.sub(0), msh.topology.dim - 1, right_facets)
 bc_right = fem.dirichletbc(0.0, right_dofs, V.sub(0))
@@ -166,19 +165,21 @@ bcs = [bc_bottom, bc_right]
 
 # %%
 dx = ufl.Measure("dx", domain=msh)
-top_facets = mesh.locate_entities_boundary(msh, 1, lambda x: np.isclose(x[1], Ly))
-mt = mesh.meshtags(msh, 1, top_facets, 1)
+top_facets = mesh.locate_entities_boundary(
+    msh, msh.topology.dim - 1, lambda x: np.isclose(x[1], Ly)
+)
+mt = mesh.meshtags(msh, msh.topology.dim - 1, top_facets, 1)
 ds = ufl.Measure("ds", subdomain_data=mt)
 
 # %% [markdown]
 # ## Define the variational problem
 #
-# We specify the problem to solve though the weak formulation written in the
-# [ufl](https://fenics.readthedocs.io/projects/ufl/en/latest/) syntax by giving
-# the bilinear $a(u,v)$ and linear forms $L(v)$ in the weak formulation:
+# We specify the finite element problem to solve using the [Unified Form
+# Language](https://fenics.readthedocs.io/projects/ufl/en/latest/) syntax by
+# giving the bilinear $a(u,v)$ and linear forms $L(v)$ of the weak formulation:
 #
-# Find the *trial function* $u$ such that for all *test functions* $v$
-# $a(u,v)=L(v)$ with
+# Find the trial function $u$ such that for all test functions $v$
+# $a(u, v)=L(v)$ with
 #
 # $$
 # a(u,v)=\int_{\Omega\setminus\Gamma}\sigma(\varepsilon(u))\cdot
@@ -250,15 +251,15 @@ uh.name = "displacement"
 # ## Postprocessing
 
 # %% [markdown]
-# We can easily calculate the potential energy
+# We can calculate the potential energy.
 
 # %%
 energy = fem.assemble_scalar(fem.form(0.5 * a(uh, uh) - L(uh)))
 print(f"The potential energy is {energy:2.3e}")
 
 # %% [markdown]
-# We can save the results to a file, that we can open with `paraview`
-# (https://www.paraview.org/)
+# We can save the results to a file, that we can open with
+# [Paraview](https://www.paraview.org/).
 
 # %%
 with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
@@ -269,13 +270,11 @@ with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
 # ## Stress computation
 #
 # We calculate here the Von Mises stress by interpolating the corresponding ufl
-# expression, see
-# https://jorgensd.github.io/dolfinx-tutorial/chapter2/linearelasticity_code.html#stress-computation
-
+# expression.
 # %%
-sigma_iso = 1.0 / 3 * ufl.tr(sigma(eps(uh))) * ufl.Identity(len(uh))
+sigma_iso = 1.0 / 3.0 * ufl.tr(sigma(eps(uh))) * ufl.Identity(len(uh))
 sigma_dev = sigma(eps(uh)) - sigma_iso
-von_Mises = ufl.sqrt(3.0 / 2 * ufl.inner(sigma_dev, sigma_dev))
+von_Mises = ufl.sqrt(3.0 / 2.0 * ufl.inner(sigma_dev, sigma_dev))
 V_von_mises = fem.functionspace(msh, ("DG", 0))
 stress_expr = fem.Expression(von_Mises, V_von_mises.element.interpolation_points())
 vm_stress = fem.Function(V_von_mises)
