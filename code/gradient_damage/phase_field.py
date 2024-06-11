@@ -49,7 +49,7 @@
 # respect the irreversibility conditions $\alpha\geq\alpha_{i-1}$.
 #
 # Here we will
-#  * Discretize the problme using $P_1$ finite elements for the displacement
+#  * Discretize the problem using $P_1$ finite elements for the displacement
 #    and the damage field.
 #  * Use alternate minimization to solve the minimization problem at each time
 #    step.
