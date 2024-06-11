@@ -194,11 +194,13 @@ ds = ufl.Measure("ds", subdomain_data=mt)
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
+# TODO: Should introduce Constant here.
 E = 1.0
 nu = 0.3
 mu = E / (2.0 * (1.0 + nu))
+# Plane strain definition
 lmbda = E * nu / ((1.0 + nu) * (1.0 - 2.0 * nu))
-# this is for plane-stress
+# Plane stress definition
 lmbda = 2 * mu * lmbda / (lmbda + 2 * mu)
 
 
