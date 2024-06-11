@@ -13,20 +13,21 @@
 #  - Laura De Lorenzis (ETH Zürich)
 #  - Corrado Maurini (Sorbonne Université)
 #
-# This notebook serves as a tutorial to solve a problem of linear elasticity using DOLFINx (FEniCS).
+# This notebook serves as a tutorial to solve a problem of linear elasticity
+# using DOLFINx (FEniCS).
 #
 # You can find a tutorial and useful resources for DOLFINx at the following links
 #
 # - https://docs.fenicsproject.org/
 # - https://github.com/FEniCS/dolfinx/
-# - https://jorgensd.github.io/dolfinx-tutorial/, see
+# - https://jorgensd.github.io/dolfinx-tutorial/, in particular
 #   https://jorgensd.github.io/dolfinx-tutorial/chapter2/linearelasticity.html
 #   for linear elasticity
 #
 # We consider an elastic slab $\Omega$ with a straight crack $\Gamma$ subject
-# to a mode-I loading by an applied traction force $f$, see figure.
+# to a mode I loading by an applied traction force $f$, see figure.
 #
-# Using the symmetry, we will consider only half of the domain in the
+# Because of the symmetry, we can consider only half of the domain in the
 # computation.
 #
 # ![title](./domain.png)
@@ -34,10 +35,10 @@
 # We solve the problem of linear elasticity with the finite element method,
 # implemented using DOLFINx.
 #
-# DOLFINx is advanced library that allows for efficient parallel computation.
-# For the sake of simplicity, we assume here to work on a single processor and
-# will not use MPI-related commands. Using DOLFINx with MPI will be covered in
-# the afternoon session.
+# DOLFINx is library that allows for efficient parallel computation using the
+# Message Passing Interface (MPI). For the sake of simplicity, we assume here
+# to work on a single process and will not use MPI-related commands. Using
+# DOLFINx with MPI will be covered in a later session.
 
 # %% [markdown]
 # We start importing the required libraries.
@@ -63,7 +64,7 @@ from mpi4py import MPI
 # The function to generate the mesh is reported in the external file
 # `meshes.py` located in the directory `../utils`.
 # To import it, we add `../utils` to the path where the system is looking for
-# possible imports
+# possible imports.
 
 # %%
 import sys
@@ -98,7 +99,9 @@ import pyvista  # noqa: E402
 
 pyvista.start_xvfb(wait=0.1)
 pyvista.set_jupyter_backend("static")
-grid = pyvista.UnstructuredGrid(*plot.vtk_mesh(msh))
+
+vtk_mesh = plot.vtk_mesh(msh)
+grid = pyvista.UnstructuredGrid(*vtk_mesh)
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True)
 plotter.camera_position = "xy"

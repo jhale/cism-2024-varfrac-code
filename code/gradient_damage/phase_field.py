@@ -75,7 +75,7 @@
 #
 # The FEniCS container does not have a `sympy` module by default so we install
 # it using pip.
-# +
+# -
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -166,7 +166,7 @@ ds = ufl.Measure("ds", domain=domain)
 # +
 # ### Boundary conditions
 # We impose Dirichlet boundary conditions on the displacement and the damage field.
-# +
+# -
 def bottom(x):
     return np.isclose(x[1], 0.0)
 
