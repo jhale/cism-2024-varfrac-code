@@ -81,6 +81,7 @@ import numpy as np
 import basix
 import dolfinx
 from dolfinx import mesh, fem, plot, la
+import dolfinx.fem.petsc
 import ufl
 
 from mpi4py import MPI
@@ -355,7 +356,7 @@ E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
 elastic_problem = SNESProblem(E_u, u, bcs_u)
 
 b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
-J_u = fem.petsc.create_matrix(elastic_problem.a)
+J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
 
 # Create Newton solver and solve
 solver_u_snes = PETSc.SNES().create()
@@ -377,7 +378,7 @@ solver_u_snes.solve(None, u.vector)
 plot_damage_state(state, load=load)
 
 # + [markdown]
-# ### Damage problem with bound-constraints
+# ### Damage problem with bound-constraint
 #
 # The damage problem ($\alpha$) at fixed displacement ($u$) is a variational
 # inequality due to the irreversibility constraint. We solve it using a

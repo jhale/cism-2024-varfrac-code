@@ -14,7 +14,7 @@ def plot_damage_state(state, load=None):
 
     plotter = pyvista.Plotter(title="Damage state", window_size=[800, 300], shape=(1, 2))
 
-    topology, cell_types, geometry = plot.create_vtk_mesh(mesh)
+    topology, cell_types, geometry = plot.vtk_mesh(mesh)
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
 
     plotter.subplot(0, 0)
