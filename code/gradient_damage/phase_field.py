@@ -7,78 +7,78 @@
 # ---
 
 # + [markdown]
-# # Gradient damage as phase-field models of brittle fracture: dolfinx example
+# # Gradient damage as phase-field models of brittle fracture
 #
 # *Authors:*
 # - Jack S. Hale (University of Luxembourg)
-# - Corrado Maurini (Sorbonnes Université)
+# - Corrado Maurini (Sorbonne Université)
 #
 # In this notebook we implement a numerical solution of the quasi-static
-# evolution problem for gradient damage models, and show how they can be used
+# evolution problem for gradient damage models, and show how it can be used
 # to solve brittle fracture problems.
 #
-# Denoting by $u$ the displacement field (vector valued) and by $\alpha$ the
-# scalar damage field we consider the energy functional
-#
+# Denote $u$ the displacement field (vector-valued) and by $\alpha$
+# (scalar-valued) the damage field. We consider the energy functional
 # $$
 # \mathcal{E}_{\ell}(u, \alpha)=
 # \dfrac{1}{2}\int_{\Omega} a({\alpha})
 # A_0\,\epsilon(u)\cdot\epsilon(u)\,dx
-# # +
-#  \,
+# \, +
 # \dfrac{G_c}{c_w} \int_{\Omega}\left(
 # \dfrac{w(\alpha)}{\ell}+
 # {\ell}\,\nabla {\alpha}\cdot\nabla{\alpha}\right)dx,
 # $$
 #
-# where $\epsilon(u)$ is the strain tensor, $\sigma_0=A_0\,\epsilon=\lambda
-# \mathrm{tr}\epsilon+2\mu \epsilon$ the stress of the undamaged material,
-# $a({\alpha})$  the stiffness modulation function though the damage field,
-# $w_1\,w(\alpha)$ the energy dissipation in an homogeouns process and $\ell$
-# the internal length.
+# where $\epsilon(u) = \tfrac{1}{2}(\nabla u + (\nabla u)^T)$ is the small
+# strain tensor, $\sigma_0=A_0\,\epsilon=\lambda \mathrm{tr}\epsilon+2\mu
+# \epsilon$ the stress of the undamaged material, with $\mu$ and $\lambda$ the
+# usual Lamé parameters, $a({\alpha})$ the stiffness modulation function that
+# deteriorates the stiffness according to the damage, $w(\alpha)$ the energy
+# dissipation for a homogeneous process and $\ell$ the internal length scale.
 #
-# In the following we will solve, at each time step $t_i$ the minimization
-# problem
+# In the following we will solve, at each pseudo-time step $t_i$, the
+# minimization problem
 #
 # $$
 # \min\mathcal{E}_{\ell}(u, \alpha),\quad u\in\mathcal{C}_i, \alpha\in \mathcal{D}_i,
 # $$
 #
-# where $\mathcal{C}_i$ is the space of kinematically admissible displacement
-# at time $t_i$ and $\mathcal{D}_i$ the admissible damage fields, that should
-# respect the irreversibility conditions $\alpha\geq\alpha_{i-1}$.
+# where $\mathcal{C}_i$ is the space of kinematically admissible displacements
+# at time $t_i$ and $\mathcal{D}_i$ the admissible damage field at $t_i$ that
+# satisfies the irreversibility condition $\alpha\geq\alpha_{i-1}$.
 #
 # Here we will
-#  * Discretize the problem using $P_1$ finite elements for the displacement
-#    and the damage field.
+#  * Discretize the problem using (vector-valued) linear Lagrange finite
+#    elements on quadrilaterals for the displacement and the damage field.
 #  * Use alternate minimization to solve the minimization problem at each time
 #    step.
-#  * Use PETSc solver to solve linear problems and variational inequality at
-#    discrete level.
+#  * Use PETSc solvers to solve the resulting linear problems and enforce the
+#    variational inequality at the discrete level.
 #
-# We will consider here the specific problem of the **traction of a
-# two-dimensional bar in plane-stress**, where
+# We will consider the problem of traction of a two-dimensional bar in
+# plane-stress, where the mesh
 # $
-# \Omega =[0,L]\times[0,H]
+# \Omega = [0,L] \times [0,H],
 # $
-# and the loading is given by under imposed end-displacement $u=(t,0)$ in
-# $x=L$, the left-end being clamped : $u=(0,0)$ in $x=0$.
+# and the problem is displacement controlled by setting the displacement
+# $u=(t,0)$ on $x=L$ and the left-end is fully clamped $u=(0,0)$ on $x=0$.
 #
-# You can find further informations about this model here:
+# You can find further information about this model in:
 # - Marigo, J.-J., Maurini, C., & Pham, K. (2016). An overview of the modelling
 #   of fracture by gradient damage models. Meccanica, 1–22.
 #   https://doi.org/10.1007/s11012-016-0538-4
 #
 # ## Preamble
 #
-# Here we import the required Python modules and set few parameters.
+# We begin by importing the required Python modules.
 #
-# The FEniCS container does not have a `sympy` module by default so we install
-# it using pip.
-# -
+# The container images built by the FEniCS Project do not have the `sympy`
+# module so we install it using pip using the Jupyterbook terminal.
+# +
 import matplotlib.pyplot as plt
 import numpy as np
 
+import basix
 import dolfinx
 from dolfinx import mesh, fem, plot, la
 import ufl
@@ -101,12 +101,11 @@ from pyvista.utilities.xvfb import start_xvfb
 
 start_xvfb(wait=0.5)
 
-# +
+# + [markdown]
 # ## Mesh
 #
-# We define here the mesh and the indicators for the boundary conditions. The
-# function `generate_mesh` uses `gmsh` (https://gmsh.info/).
-#
+# We define the mesh using the built-in DOLFINx mesh generation functions for
+# simply geometries.
 # +
 L = 1.0
 H = 0.3
@@ -117,10 +116,12 @@ nx = int(L / cell_size)
 ny = int(H / cell_size)
 
 comm = MPI.COMM_WORLD
-domain = mesh.create_rectangle(comm, [(0.0, 0.0), (L, H)], [nx, ny])
-ndim = domain.geometry.dim
+msh = mesh.create_rectangle(
+    comm, [(0.0, 0.0), (L, H)], [nx, ny], cell_type=mesh.CellType.quadrilateral
+)
+ndim = msh.geometry.dim
 
-topology, cell_types, geometry = plot.vtk_mesh(domain)
+topology, cell_types, geometry = plot.vtk_mesh(msh)
 grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True, show_scalar_bar=True)
@@ -130,43 +131,48 @@ plotter.set_scale(5, 5)
 if not pyvista.OFF_SCREEN:
     plotter.show()
 
-# -
+# + [markdown]
 # ## Setting the stage
 #
-# Setting the finite element space, the state vector, test/trial functions and measures.
+# We setup the finite element space, the states, the bound constraints on the
+# states and UFL measures.
 #
-# We use $P_1$ finite element (triangle with linear Lagrange polynomial as
-# shape functions and dofs located at the vertices) for both displacement and
-# damage.
+# We use (vector-valued) linear Lagrange finite elements on quadrilaterals for
+# displacement and damage.
 # +
+element_u = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(msh.geometry.dim,))
+V_u = fem.functionspace(msh, element_u)
 
-element_u = ufl.VectorElement("Lagrange", domain.ufl_cell(), degree=1, dim=2)
-V_u = fem.functionspace(domain, element_u)
-
-element_alpha = ufl.FiniteElement("Lagrange", domain.ufl_cell(), degree=1)
-V_alpha = fem.functionspace(domain, element_alpha)
+element_alpha = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1)
+V_alpha = fem.functionspace(msh, element_alpha)
 
 # Define the state
-u = fem.Function(V_u, name="Displacement")
-alpha = fem.Function(V_alpha, name="Damage")
+u = fem.Function(V_u, name="displacement")
+alpha = fem.Function(V_alpha, name="damage")
 
 state = {"u": u, "alpha": alpha}
 
-# Need upper/lower bound for the damage field
-alpha_lb = fem.Function(V_alpha, name="Lower bound")
-alpha_ub = fem.Function(V_alpha, name="Upper bound")
-alpha_ub.x.array[:] = 1.0
+# Lower bound for the damage field
+alpha_lb = fem.Function(V_alpha, name="lower bound")
 alpha_lb.x.array[:] = 0.0
+# Upper bound for the damage field
+alpha_ub = fem.Function(V_alpha, name="upper bound")
+alpha_ub.x.array[:] = 1.0
 
-# Measures
-dx = ufl.Measure("dx", domain=domain)
-ds = ufl.Measure("ds", domain=domain)
+# Domain measure.
+dx = ufl.Measure("dx", domain=msh)
 
 
-# +
+# + [markdown]
 # ### Boundary conditions
-# We impose Dirichlet boundary conditions on the displacement and the damage field.
-# -
+# We impose Dirichlet boundary conditions on the displacement and the damage
+# field on the appropriate parts of the boundary.
+#
+# We do this using predicates. DOLFINx will pass an array of the midpoints of
+# all facets (edges) as an argument `x` with shape `(num_edges, 3)` to our
+# predicate. The predicate we define must return an boolean array containing
+# `True` if the edge is on the desired boundary, and `false` if not.
+# +
 def bottom(x):
     return np.isclose(x[1], 0.0)
 
@@ -183,24 +189,38 @@ def left(x):
     return np.isclose(x[0], 0.0)
 
 
-fdim = domain.topology.dim - 1
+# + [markdown]
+# The function `mesh.locate_entities_boundary` calculates the indices of the
+# edges on the boundary defined by our predicate.
+# +
+fdim = msh.topology.dim - 1
 
-left_facets = mesh.locate_entities_boundary(domain, fdim, left)
-right_facets = mesh.locate_entities_boundary(domain, fdim, right)
-bottom_facets = mesh.locate_entities_boundary(domain, fdim, bottom)
-top_facets = mesh.locate_entities_boundary(domain, fdim, top)
+left_facets = mesh.locate_entities_boundary(msh, fdim, left)
+right_facets = mesh.locate_entities_boundary(msh, fdim, right)
+bottom_facets = mesh.locate_entities_boundary(msh, fdim, bottom)
+top_facets = mesh.locate_entities_boundary(msh, fdim, top)
+
+# + [markdown]
+# The function `fem.locate_dofs_topological` calculates the indices of the
+# degrees of freedom associated with the edges. This is the information the
+# assembler will need to apply Dirichlet boundary conditions.
+# +
 left_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, left_facets)
 right_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, right_facets)
 bottom_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, bottom_facets)
 top_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, top_facets)
 
-u_D = fem.Constant(domain, PETSc.ScalarType(1.0))
-bc_u_left = fem.dirichletbc(0.0, left_boundary_dofs_ux, V_u.sub(0))
-bc_u_right = fem.dirichletbc(u_D, right_boundary_dofs_ux, V_u.sub(0))
-bc_u_bottom = fem.dirichletbc(0.0, bottom_boundary_dofs_uy, V_u.sub(1))
-bc_u_top = fem.dirichletbc(0.0, top_boundary_dofs_uy, V_u.sub(1))
-bcs_u = [bc_u_left, bc_u_right, bc_u_bottom]
+u_D = fem.Constant(msh, PETSc.ScalarType(1.0))
+bc_ux_left = fem.dirichletbc(0.0, left_boundary_dofs_ux, V_u.sub(0))
+bc_ux_right = fem.dirichletbc(u_D, right_boundary_dofs_ux, V_u.sub(0))
+bc_uy_bottom = fem.dirichletbc(0.0, bottom_boundary_dofs_uy, V_u.sub(1))
+bc_uy_top = fem.dirichletbc(0.0, top_boundary_dofs_uy, V_u.sub(1))  # TODO: This is unused?
 
+bcs_u = [bc_ux_left, bc_ux_right, bc_uy_bottom]
+
+# + [markdown]
+# and similarly for the damage field.
+# +
 left_boundary_dofs_alpha = fem.locate_dofs_topological(V_alpha, fdim, left_facets)
 right_boundary_dofs_alpha = fem.locate_dofs_topological(V_alpha, fdim, right_facets)
 bc_alpha_left = fem.dirichletbc(0.0, left_boundary_dofs_alpha, V_alpha)
@@ -208,36 +228,36 @@ bc_alpha_right = fem.dirichletbc(0.0, right_boundary_dofs_alpha, V_alpha)
 
 bcs_alpha = [bc_alpha_left, bc_alpha_right]
 
-# + [markdown] id="glu29jUver2j"
+# + [markdown]
 # ## Variational formulation of the problem
-
-# + [markdown] id="IELp_KKger2j"
 # ### Constitutive model
 #
-# We define here the constitutive model and the related parameters.
-# These functions will be used to define the energy. You can try to change
-# them, the code is sufficiently generic to allows for a wide class of function
-# $w$ and $a$.
+# We will now define the constitutive model and the related parameters. In turn
+# these will be used to define the energy. The code is sufficiently generic to
+# allow for a wide class of functions $w$ and $a$.
 #
-# **Exercice:** Show by dimensional analysis that varying $G_c$ and $E$ is
-# equivalent to a rescaling of the displacement by a factor
+# **Exercise:** Show by dimensional analysis that varying $G_c$ and $E$ is
+# equivalent to a rescaling of the displacement by a constant factor.
 #
 # $$
 # u_0 = \sqrt{\frac{G_c L}{E}}
 # $$
 #
-# We can then choose these constants freely in the numerical work and simply
-# rescale the displacement to match the material data of a specific brittle
-# material.
+# We can then choose these constants freely in the numerical work (e.g.
+# unitary) and simply rescale the displacement to match the material data of a
+# specific brittle material.
 #
 # The *real* material parameters (in the sense that they are those that affect
 # the results) are
 # - the Poisson ratio $\nu$ and
-# - the ratio $\ell/L$ between internal length $\ell$ and the domain size $L$.
+# - the ratio $\ell/L$ between internal length $\ell$ and the msh size $L$.
 # +
-E, nu = fem.Constant(domain, PETSc.ScalarType(100.0)), fem.Constant(domain, PETSc.ScalarType(0.3))
-Gc = fem.Constant(domain, PETSc.ScalarType(1.0))
-ell = fem.Constant(domain, PETSc.ScalarType(ell_))
+E, nu = (
+    fem.Constant(msh, dolfinx.default_scalar_type(100.0)),
+    fem.Constant(msh, dolfinx.default_scalar_type(0.3)),
+)
+Gc = fem.Constant(msh, dolfinx.default_scalar_type(1.0))
+ell = fem.Constant(msh, dolfinx.default_scalar_type(ell_))
 
 
 def w(alpha):
@@ -255,25 +275,25 @@ def eps(u):
     return ufl.sym(ufl.grad(u))
 
 
-def sigma_0(u):
-    """Stress tensor of the undamaged material as a function of the displacement"""
+def sigma_0(eps):
+    """Stress tensor of the undamaged material as a function of the strain"""
     mu = E / (2.0 * (1.0 + nu))
     lmbda = E * nu / (1.0 - nu**2)
-    return 2.0 * mu * eps(u) + lmbda * ufl.tr(eps(u)) * ufl.Identity(ndim)
+    return 2.0 * mu * eps + lmbda * ufl.tr(eps) * ufl.Identity(ndim)
 
 
-def sigma(u, alpha):
+def sigma(eps, alpha):
     """Stress tensor of the damaged material as a function of the displacement and the damage"""
-    return a(alpha) * sigma_0(u)
+    return a(alpha) * sigma_0(eps)
 
 
 # + [markdown]
-# **Exercise:** Show that
-# 1. Show that one can relate the dissipation constant $w_1$ to the energy
+# **Exercise:**
+# 1. Show that it is possible to relate the dissipation constant $w_1$ to the energy
 # dissipated in a smeared representation of a crack through the following
 # relation:
 # $$
-# {G_c}={c_w}\,w_1\ell,\qquad c_w =4\int_0^1\sqrt{w(\alpha)}d\alpha
+# {G_c}={c_w}\,w_1\ell,\qquad c_w = 4\int_0^1\sqrt{w(\alpha)}d\alpha
 # $$
 # 2. The half-width of a localisation zone is given by:
 # $$
@@ -303,31 +323,32 @@ print("sigma_c = %2.3f" % sigma_c)
 eps_c = float(sigma_c / E.value)
 print("eps_c = %2.3f" % eps_c)
 
-# +
+# + [markdown]
 # ### Energy functional and its derivatives
 #
-# We use the `ufl` package of FEniCS to define the energy functional.
-# Gateaux derivatives of the energy are computed using symbolic computation
-# capabilities of `ufl`, see http://fenics-ufl.readthedocs.io/en/latest/
+# We use the `ufl` package of FEniCS to define the energy functional. The
+# consistent residual (first Gateaux derivative of the energy functional) and
+# Jacobian (second Gateaux derivative of the energy functional) can then be
+# derived through automatic symbolic differentiation using `ufl.derivative`.
 # +
-f = fem.Constant(domain, PETSc.ScalarType((0.0, 0.0)))
-elastic_energy = 0.5 * ufl.inner(sigma(u, alpha), eps(u)) * dx
+f = fem.Constant(msh, PETSc.ScalarType((0.0, 0.0)))
+elastic_energy = 0.5 * ufl.inner(sigma(eps(u), alpha), eps(u)) * dx
 dissipated_energy = (
-    Gc / float(c_w) * (w(alpha) / ell + ell * ufl.dot(ufl.grad(alpha), ufl.grad(alpha))) * dx
+    Gc / float(c_w) * (w(alpha) / ell + ell * ufl.inner(ufl.grad(alpha), ufl.grad(alpha))) * dx
 )
-external_work = ufl.dot(f, u) * dx
+external_work = ufl.inner(f, u) * dx
 total_energy = elastic_energy + dissipated_energy - external_work
 
-# +
+# + [markdown]
 # ## Solvers
-
-# +
 # ### Displacement problem
-# The $u$-problem at fixed $\alpha$ is a linear problem corresponding with
-# linear elasticity. We solve it with a standard linear solver. We use
-# automatic differention to get the first derivative of the energy. We use a
-# direct solve to solve the linear system, but you can also easily set
-# iterative solvers and preconditioners when solving large problem in parallel.
+# The displacement problem ($u$) at for fixed damage ($\alpha$) is a linear
+# problem equivalent to linear elasticity with a spatially varying stiffness.
+# We solve it with a standard linear solver. We use automatic differention to
+# get the first derivative of the energy. We use a direct solve to solve the
+# linear system, but you can also set iterative solvers and preconditioners
+# when solving large problem in parallel. We will discuss this in the next
+# tutorial.
 # +
 E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
@@ -346,8 +367,8 @@ solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_u_snes.getKSP().getPC().setType("lu")
 
-# -
-# We test below the solution of the elasticity problem
+# + [markdown]
+# We test the solution of the elasticity problem
 # +
 load = 1.0
 u_D.value = load
@@ -358,18 +379,17 @@ plot_damage_state(state, load=load)
 # + [markdown]
 # ### Damage problem with bound-constraints
 #
-# The $\alpha$-problem at fixed $u$ is a variational inequality, because of the
-# irreversibility constraint. We solve it using a specific solver for
-# bound-constrained provided by `PETSC`, called `SNESVI`. To this end we define
-# with a specific syntax a class defining the problem, and the lower (`lb`) and
-# upper (`ub`) bounds.
-# -
-
-# We now set up the PETSc solver using petsc4py
-# (https://www.mcs.anl.gov/petsc/petsc-current/docs/manualpages/SNES/SNESVINEWTONRSLS.html)
-
+# The damage problem ($\alpha$) at fixed displacement ($u$) is a variational
+# inequality due to the irreversibility constraint. We solve it using a
+# specific solver for bound-constrained provided by PETSc, called SNESVI. To
+# this end we define with a specific syntax a class defining the problem, and
+# the lower (`lb`) and upper (`ub`) bounds.
+# +
 E_alpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
+
+# We now set up the PETSc solver using petsc4py, a fully featured Python
+# wrapper around PETSc.
 damage_problem = SNESProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
 
 b_alpha = la.create_petsc_vector(V_alpha.dofmap.index_map, V_alpha.dofmap.index_map_bs)
@@ -386,25 +406,18 @@ solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
 # We set the bound
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
-# -
 
 # Let us now test the damage solver
-
 solver_alpha_snes.solve(None, alpha.vector)
 plot_damage_state(state, load=load)
 
 # + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
 #
-# We solve the nonlinear problem in $(u,\alpha)$ at each time-step by a
+# We solve the nonlinear problem in $(u,\alpha)$ at each pseudo-timestep by a
 # fixed-point algorithm consisting in alternate minimization with respect to
-# $u$ at fixed $\alpha$ and viceversa, *i.e.* we solve till convergence the
-# $u$- and the $\alpha$-problems above.
-# -
-
-# The main idea is to iterate as following solution of displacement and damage
-# subproblem at fixed loading
-
+# $u$ at fixed $\alpha$ and then for $\alpha$ at fixed $u$ until convergence is
+# achieved.
 # +
 with alpha.vector.localForm() as alpha_local:
     alpha_local.set(0)
@@ -414,27 +427,25 @@ for i in range(10):
     solver_u_snes.solve(None, u.vector)
     solver_alpha_snes.solve(None, alpha.vector)
     plot_damage_state(state, load)
-# -
 
-# We need to add a convergence condition for the fixed point algorithm.
-
+# + [markdown]
+# We now define a function that performs the alternative minimisation algorithm
+# and assesses convergence based on the $L^2$ norm of the damage field.
 # +
-alt_min_parameters = {"atol": 1.0e-8, "max_iter": 100}
 
 
 def simple_monitor(state, iteration, error_L2):
-    # if MPI.comm_world.rank == 0:
-    print(f"Iteration: {iteration:3d}, Error: {error_L2:3.4e}")
+    print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-def alternate_minimization(state, parameters=alt_min_parameters, monitor=None):
+def alternate_minimization(state, atol=1e-8, max_iter=100, monitor=simple_monitor):
     u = state["u"]
     alpha = state["alpha"]
 
     alpha_old = fem.Function(alpha.function_space)
     alpha.vector.copy(result=alpha_old.vector)
 
-    for iteration in range(parameters["max_iter"]):
+    for iteration in range(max_iter):
         # Solve displacement
         solver_u_snes.solve(None, u.vector)
 
@@ -449,28 +460,23 @@ def alternate_minimization(state, parameters=alt_min_parameters, monitor=None):
         if monitor is not None:
             monitor(state, iteration, error_L2)
 
-        if error_L2 <= parameters["atol"]:
-            break
-    else:
-        raise RuntimeError(
-            f"Could not converge after {iteration:3d} iteration, error {error_L2:3.4e}"
-        )
+        if error_L2 <= atol:
+            return (error_L2, iteration)
 
-    return (error_L2, iteration)
+    raise RuntimeError(f"Could not converge after {max_iter} iterations, error {error_L2:3.4e}")
 
 
-# -
+# + [markdown]
 # We reset the damage field to an undamaged state.
 # +
 alpha.x.array[:] = 0.0
-alternate_minimization(state, parameters=alt_min_parameters, monitor=simple_monitor)
+alternate_minimization(state)
 plot_damage_state(state, load=load)
 
-# -
 
+# + [markdown]
 # ## Time-stepping: solving a quasi-static problem
-
-
+# +
 def postprocessing(state, iteration, error_L2):
     # Save number of iterations for the time step
     iterations[i_t] = np.array([t, i_t])
@@ -491,8 +497,7 @@ def postprocessing(state, iteration, error_L2):
     simple_monitor(state, iteration, error_L2)
 
 
-# +
-load0 = float(eps_c) * L  # reference value for the loading (imposed displacement)
+load0 = np.float64(eps_c) * L  # reference value for the loading (imposed displacement)
 loads = load0 * np.linspace(0, 1.5, 20)
 
 energies = np.zeros((len(loads), 4))
@@ -506,13 +511,12 @@ with alpha.vector.localForm() as alpha_local:
 for i_t, t in enumerate(loads):
     u_D.value = t
 
-    # update the lower bound
+    # Update the lower bound to ensure irreversibility of damage field.
     alpha.vector.copy(alpha_lb.vector)
     print(f"-- Solving for t = {t:3.2f} --")
-    alternate_minimization(state, parameters=alt_min_parameters, monitor=postprocessing)
+    alternate_minimization(state)
     plot_damage_state(state)
 
-# + id="gySiyQlrer24"
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2)
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2)
 (p3,) = plt.plot(energies[:, 0], energies[:, 3], "ko", linewidth=2)
@@ -525,29 +529,28 @@ plt.axhline(y=H, color="grey", linestyle="--", linewidth=2)
 
 plt.savefig("output/energies.png")
 
-# + [markdown] id="2UCtv-Yker2_"
+# + [markdown]
 # ## Verification
 #
-# The plots above indicates that the crack appear at the elastic limit calculated analytically (see the gridlines) and that the dissipated energy coincide with the length of the crack times $G_c$. Let's check the latter explicity
-
-# + id="mrptael7er3A"
+# The plots above indicates that the crack appears at the elastic limit
+# calculated analytically (see the gridlines) and that the dissipated energy
+# coincides with the length of the crack times the fracture toughness $G_c$.
+# Let's check the dissipated energy explicity
+# +
 surface_energy_value = comm.allreduce(
     dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)), op=MPI.SUM
 )
 print(f"The dissipated energy on a crack is {surface_energy_value:.3f}")
 print(f"The expected value is {H:f}")
 
-# + [markdown] id="C-jo1UDHer3B"
+# + [markdown]
 # Let us look at the damage profile
-
 # +
-
-tol = 0.001  # Avoid hitting the outside of the domain
+tol = 0.001  # Avoid hitting the boundary of the mesh
 y = np.linspace(0 + tol, L - tol, 101)
 points = np.zeros((3, 101))
 points[0] = y
 points[1] = H / 2
-
 
 fig = plt.figure()
 points_on_proc, alpha_val = evaluate_on_points(alpha, points)
@@ -558,8 +561,8 @@ plt.legend()
 
 # If run in parallel as a Python file, we save a plot per processor
 plt.savefig(f"output/damage_line_rank{MPI.COMM_WORLD.rank:d}.png")
-# -
 
+# + [markdown]
 # ## Exercises
 #
 # 1. Replace the mesh with an unstructured mesh generated with gmsh
