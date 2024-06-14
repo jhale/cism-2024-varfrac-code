@@ -24,15 +24,14 @@
 #
 # You can find a tutorial and useful resources for DOLFINx at the following links
 #
-# - https://docs.fenicsproject.org/
-# - https://github.com/FEniCS/dolfinx/
-# - https://jorgensd.github.io/dolfinx-tutorial/, in particular
-#   https://jorgensd.github.io/dolfinx-tutorial/chapter2/linearelasticity.html
-#   for linear elasticity
+# - [The FEniCS Project Documentation](https://docs.fenicsproject.org).
+# - [The source code, particularly `python/tests/unit`](https://github.com/FEniCS/dolfinx/).
+# - [The DOLFINx tutorial](https://jorgensd.github.io/dolfinx-tutorial/),
+# - which includes [linear elasticity](https://jorgensd.github.io/dolfinx-tutorial/chapter2/linearelasticity.html).
 #
 # We consider an elastic slab $\Omega$ with a straight crack $\Gamma$ subject
 # to a mode I loading by an applied traction force $f$. Because of symmetry, we
-# can consider only half of the domain in the computation.
+# can consider only half of the real domain in the computation.
 #
 # ![title](./domain.png)
 #
