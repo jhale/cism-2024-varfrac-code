@@ -3,39 +3,39 @@ import dolfinx.plot as plot
 import pyvista
 
 
-def plot_damage_state(state, load=None):
+def plot_damage_state(u, alpha, load=None):
     """
     Plot the displacement and damage field with pyvista
     """
-    u = state["u"]
-    alpha = state["alpha"]
-
+    assert u.function_space.mesh == alpha.function_space.mesh
     mesh = u.function_space.mesh
 
-    plotter = pyvista.Plotter(title="Damage state", window_size=[800, 300], shape=(1, 2))
+    plotter = pyvista.Plotter(
+        title="damage, warped by displacement", window_size=[800, 300], shape=(1, 2)
+    )
 
     topology, cell_types, geometry = plot.vtk_mesh(mesh)
     grid = pyvista.UnstructuredGrid(topology, cell_types, geometry)
 
     plotter.subplot(0, 0)
     if load is not None:
-        plotter.add_text(f"Displacement - load {load:3.3f}", font_size=11)
+        plotter.add_text(f"displacement - load {load:3.3f}", font_size=11)
     else:
-        plotter.add_text("Displacement", font_size=11)
-    vals_2D = u.compute_point_values().real
-    vals = np.zeros((vals_2D.shape[0], 3))
-    vals[:, :2] = vals_2D
-    grid["u"] = vals
+        plotter.add_text("displacement", font_size=11)
+
+    values = np.zeros((geometry.shape[0], 3), dtype=np.float64)
+    values[:, : len(u)] = u.x.array.real.reshape((geometry.shape[0], len(u)))
+    grid["u"] = values
     warped = grid.warp_by_vector("u", factor=0.1)
     _ = plotter.add_mesh(warped, show_edges=False)
     plotter.view_xy()
 
     plotter.subplot(0, 1)
     if load is not None:
-        plotter.add_text(f"Damage - load {load:3.3f}", font_size=11)
+        plotter.add_text(f"damage - load {load:3.3f}", font_size=11)
     else:
-        plotter.add_text("Damage", font_size=11)
-    grid.point_arrays["alpha"] = alpha.compute_point_values().real
+        plotter.add_text("damage", font_size=11)
+    grid["alpha"] = alpha.x.array.real
     grid.set_active_scalars("alpha")
     plotter.add_mesh(grid, show_edges=False, show_scalar_bar=True, clim=[0, 1])
     plotter.view_xy()
@@ -43,7 +43,7 @@ def plot_damage_state(state, load=None):
         plotter.show()
 
 
-def warp_plot_2d(u, cell_field=None, field_name="Field", factor=1.0, backend="none", **kwargs):
+def warp_plot_2d(u, cell_field=None, field_name="Field", factor=1.0, **kwargs):
     msh = u.function_space.mesh
 
     # Create plotter and pyvista grid
