@@ -199,7 +199,6 @@ fdim = msh.topology.dim - 1
 left_facets = mesh.locate_entities_boundary(msh, fdim, left)
 right_facets = mesh.locate_entities_boundary(msh, fdim, right)
 bottom_facets = mesh.locate_entities_boundary(msh, fdim, bottom)
-top_facets = mesh.locate_entities_boundary(msh, fdim, top)
 
 # + [markdown]
 # The function `fem.locate_dofs_topological` calculates the indices of the
@@ -209,13 +208,11 @@ top_facets = mesh.locate_entities_boundary(msh, fdim, top)
 left_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, left_facets)
 right_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, right_facets)
 bottom_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, bottom_facets)
-top_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, top_facets)
 
 u_D = fem.Constant(msh, PETSc.ScalarType(1.0))
 bc_ux_left = fem.dirichletbc(0.0, left_boundary_dofs_ux, V_u.sub(0))
 bc_ux_right = fem.dirichletbc(u_D, right_boundary_dofs_ux, V_u.sub(0))
 bc_uy_bottom = fem.dirichletbc(0.0, bottom_boundary_dofs_uy, V_u.sub(1))
-bc_uy_top = fem.dirichletbc(0.0, top_boundary_dofs_uy, V_u.sub(1))  # TODO: This is unused?
 
 bcs_u = [bc_ux_left, bc_ux_right, bc_uy_bottom]
 
@@ -558,14 +555,17 @@ plt.xlabel("x")
 plt.legend()
 
 # If run in parallel as a Python file, we save a plot per processor
-plt.savefig(f"output/damage_line_rank{MPI.COMM_WORLD.rank:d}.png")
+plt.savefig(f"output/damage_line_rank_{MPI.COMM_WORLD.rank:d}.png")
 
 # + [markdown]
 # ## Exercises
 #
-# 1. Replace the mesh with an unstructured mesh generated with gmsh
-# 2. Refactor `alternate_minimization` as an external function or class to put
+# You can duplicate this notebook by selecting `File > Duplicate Notebook` in
+# the menu.
+#
+# 1. Replace the mesh with an unstructured mesh generated with gmsh.
+# 2. Refactor `alternate_minimization` as an external function and put it
 #    in a seperate `.py` file and `import` it into the notebook.
 # 3. Run simulations with:
-#     1. A slab with an hole in the center
-#     2. A slab with a V-notch
+#     1. A slab with an hole in the center.
+#     2. A slab with a V-notch.
