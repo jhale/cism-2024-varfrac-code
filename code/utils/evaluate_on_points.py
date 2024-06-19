@@ -1,7 +1,7 @@
 import numpy as np
-from dolfinx import geometry
 
 import basix.ufl
+from dolfinx import geometry
 
 
 def evaluate_on_points(function, points):
@@ -30,8 +30,9 @@ def evaluate_on_points(function, points):
 
 
 if __name__ == "__main__":
-    from dolfinx import fem, mesh
     from mpi4py import MPI
+
+    from dolfinx import fem, mesh
 
     # Create a mesh and a first function
     domain = mesh.create_unit_square(MPI.COMM_WORLD, 8, 8, mesh.CellType.triangle)

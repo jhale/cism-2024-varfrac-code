@@ -39,19 +39,6 @@
 # We start importing the required libraries.
 
 # %%
-import numpy as np
-
-import basix
-import basix.ufl
-import dolfinx.fem as fem
-import dolfinx.fem.petsc  # noqa: F401
-import dolfinx.mesh as mesh
-import dolfinx.io as io
-import dolfinx.plot as plot
-import ufl
-
-from mpi4py import MPI
-
 # %% [markdown]
 # Let us generate a mesh using [gmsh](http://gmsh.info/).
 # The mesh is refined around the crack tip.
@@ -59,12 +46,24 @@ from mpi4py import MPI
 # `meshes.py` located in the directory `../utils`.
 # To import it, we add `../utils` to the path where the system is looking for
 # possible imports.
-
 # %%
 import sys
 
+from mpi4py import MPI
+
+import numpy as np
+
+import basix
+import basix.ufl
+import dolfinx.fem as fem
+import dolfinx.fem.petsc  # noqa: F401
+import dolfinx.io as io
+import dolfinx.mesh as mesh
+import dolfinx.plot as plot
+import ufl
+
 sys.path.append("../utils")
-from meshes import generate_mesh_with_crack  # noqa: E402
+from meshes import generate_mesh_with_crack
 
 # %%
 Lx = 1.0

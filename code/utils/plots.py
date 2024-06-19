@@ -1,6 +1,7 @@
 import numpy as np
-import dolfinx.plot as plot
 import pyvista
+
+import dolfinx.plot as plot
 
 
 def plot_damage_state(u, alpha, load=None):

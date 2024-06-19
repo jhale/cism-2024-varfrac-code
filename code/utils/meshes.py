@@ -1,5 +1,7 @@
-import gmsh
 from mpi4py import MPI
+
+import gmsh
+
 from dolfinx.io import gmshio
 
 

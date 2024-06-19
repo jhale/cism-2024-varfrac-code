@@ -3,17 +3,16 @@ import sys
 sys.path.append("../python")
 
 # Import required libraries
-import numpy as np
-
-import dolfinx.fem as fem
-import dolfinx.mesh as mesh
-import dolfinx.io as io
-import ufl
-
 from mpi4py import MPI
 from petsc4py.PETSc import ScalarType
 
+import numpy as np
 from meshes import generate_mesh_with_crack
+
+import dolfinx.fem as fem
+import dolfinx.io as io
+import dolfinx.mesh as mesh
+import ufl
 
 
 def solve_elasticity(

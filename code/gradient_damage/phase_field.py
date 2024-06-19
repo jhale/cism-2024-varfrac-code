@@ -65,7 +65,7 @@
 #
 # You can find further information about this model in:
 # - Marigo, J.-J., Maurini, C., & Pham, K. (2016). An overview of the modelling
-#   of fracture by gradient damage models. Meccanica, 1–22.
+#   of fracture by gradient damage models. Meccanica, 1-22.
 #   https://doi.org/10.1007/s11012-016-0538-4
 #
 # ## Preamble
@@ -75,29 +75,27 @@
 # The container images built by the FEniCS Project do not have the `sympy`
 # module so we install it using pip using the Jupyterbook terminal.
 # +
+import sys
+
+from mpi4py import MPI
+from petsc4py import PETSc
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 import basix
 import dolfinx
-from dolfinx import mesh, fem, plot, la
 import dolfinx.fem.petsc
 import ufl
-
-from mpi4py import MPI
-from petsc4py import PETSc
-
-import sys
+from dolfinx import fem, la, mesh, plot
 
 sys.path.append("../utils/")
 
-from evaluate_on_points import evaluate_on_points
-from plots import plot_damage_state
-from petsc_problems import SNESProblem
-
-import sympy
-
 import pyvista
+import sympy
+from evaluate_on_points import evaluate_on_points
+from petsc_problems import SNESProblem
+from plots import plot_damage_state
 from pyvista.utilities.xvfb import start_xvfb
 
 start_xvfb(wait=0.5)
