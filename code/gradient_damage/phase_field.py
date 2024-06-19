@@ -375,7 +375,7 @@ load = 1.0
 u_D.value = load
 u.x.array[:] = 0
 solver_u_snes.solve(None, u.vector)
-plot_damage_state(state, load=load)
+plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
 # ### Damage problem with bound-constraint
@@ -410,7 +410,7 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 
 # Let us now test the damage solver
 solver_alpha_snes.solve(None, alpha.vector)
-plot_damage_state(state, load=load)
+plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
@@ -427,7 +427,7 @@ for i in range(10):
     print(f"Iteration {i}")
     solver_u_snes.solve(None, u.vector)
     solver_alpha_snes.solve(None, alpha.vector)
-    plot_damage_state(state, load)
+    plot_damage_state(u, alpha, load)
 
 # + [markdown]
 # We now define a function that performs the alternative minimisation algorithm
@@ -435,16 +435,13 @@ for i in range(10):
 # +
 
 
-def simple_monitor(state, iteration, error_L2):
+def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-def alternate_minimization(state, atol=1e-8, max_iter=100, monitor=simple_monitor):
-    u = state["u"]
-    alpha = state["alpha"]
-
+def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_monitor):
     alpha_old = fem.Function(alpha.function_space)
-    alpha.vector.copy(result=alpha_old.vector)
+    alpha_old.x.array[:] = alpha.x.array
 
     for iteration in range(max_iter):
         # Solve displacement
@@ -459,7 +456,7 @@ def alternate_minimization(state, atol=1e-8, max_iter=100, monitor=simple_monito
         alpha.vector.copy(alpha_old.vector)
 
         if monitor is not None:
-            monitor(state, iteration, error_L2)
+            monitor(u, alpha, iteration, error_L2)
 
         if error_L2 <= atol:
             return (error_L2, iteration)
@@ -471,14 +468,14 @@ def alternate_minimization(state, atol=1e-8, max_iter=100, monitor=simple_monito
 # We reset the damage field to an undamaged state.
 # +
 alpha.x.array[:] = 0.0
-alternate_minimization(state)
-plot_damage_state(state, load=load)
+alternate_minimization(u, alpha)
+plot_damage_state(u, alpha, load=load)
 
 
 # + [markdown]
 # ## Time-stepping: solving a quasi-static problem
 # +
-def postprocessing(state, iteration, error_L2):
+def postprocessing(u, alpha, iteration, error_L2):
     # Save number of iterations for the time step
     iterations[i_t] = np.array([t, i_t])
 
@@ -495,7 +492,7 @@ def postprocessing(state, iteration, error_L2):
         [t, elastic_energy_value, surface_energy_value, elastic_energy_value + surface_energy_value]
     )
 
-    simple_monitor(state, iteration, error_L2)
+    simple_monitor(u, alpha, iteration, error_L2)
 
 
 load0 = np.float64(eps_c) * L  # reference value for the loading (imposed displacement)
@@ -503,8 +500,6 @@ loads = load0 * np.linspace(0, 1.5, 20)
 
 energies = np.zeros((len(loads), 4))
 iterations = np.zeros((len(loads), 2))
-
-alt_min_parameters = {"atol": 1.0e-6, "max_iter": 100}
 
 with alpha.vector.localForm() as alpha_local:
     alpha_local.set(0)
@@ -515,8 +510,8 @@ for i_t, t in enumerate(loads):
     # Update the lower bound to ensure irreversibility of damage field.
     alpha.vector.copy(alpha_lb.vector)
     print(f"-- Solving for t = {t:3.2f} --")
-    alternate_minimization(state)
-    plot_damage_state(state)
+    alternate_minimization(u, alpha)
+    plot_damage_state(u, alpha)
 
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2)
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2)
@@ -548,14 +543,16 @@ print(f"The expected value is {H:f}")
 # Let us look at the damage profile
 # +
 tol = 0.001  # Avoid hitting the boundary of the mesh
-y = np.linspace(0 + tol, L - tol, 101)
-points = np.zeros((3, 101))
-points[0] = y
-points[1] = H / 2
+num_points = 101
+points = np.zeros((num_points, 3))
+
+y = np.linspace(0.0 + tol, L - tol, num=num_points)
+points[:, 0] = y
+points[:, 1] = H / 2.0
 
 fig = plt.figure()
 points_on_proc, alpha_val = evaluate_on_points(alpha, points)
-plt.plot(points_on_proc[:, 0], alpha_val, "k", linewidth=2, label="Damage")
+plt.plot(points_on_proc[:, 0], alpha_val, "k", linewidth=2, label="damage")
 plt.grid(True)
 plt.xlabel("x")
 plt.legend()
