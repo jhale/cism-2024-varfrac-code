@@ -1,5 +1,6 @@
 jupyter-book
 jupytext
 sympy
-dolfinx
+fenics-dolfinx
 gmsh
+pyvista
