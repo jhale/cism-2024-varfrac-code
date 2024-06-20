@@ -2,5 +2,5 @@ format: jb-book
 root: README.md
 
 chapters:
-- file: "code/linear_elasticity/linear_elasticity.py"
-- file: "code/gradient_damage/gradient_damage.py"
+  - file: "code/linear_elasticity/linear_elasticity.py"
+  - file: "code/gradient_damage/gradient_damage.py"
