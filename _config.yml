@@ -51,6 +51,9 @@ sphinx:
       .py:
         - jupytext.reads
         - fmt: py
+      .py:
+        - jupytext.reads
+        - fmt: ipynb
 
 html:
   use_issues_button: false

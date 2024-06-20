@@ -2,13 +2,15 @@
 
 ## Introduction
 
+
+
 ## Authors
 
-Jack S. Hale, University of Luxembourg.
+- Jack S. Hale, University of Luxembourg.
 
-Laura de Lorenzis, ETH Zurich.
+- Laura de Lorenzis, ETH Zurich.
 
-Corrado Maurini, Sorbonne Université.
+- Corrado Maurini, Sorbonne Université.
 
 ## Developer instructions
 
