@@ -25,18 +25,18 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 1. Install Docker Desktop on your system following the instructions
    [here](https://www.docker.com/products/docker-desktop/).
 
-2. Pull the DOLFINx laboratory image.
+2. Pull the DOLFINx laboratory image:
 
        docker pull dolfinx/lab:v0.8.0
 
-3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell.
+3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell:
 
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
        docker run -ti -v $(pwd):/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0 
 
 4. (Windows Powershell). Start a DOLFINx laboratory container using
-   Powershell. 
+   Powershell: 
        
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
