@@ -8,15 +8,16 @@ Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
 The built book can be read at https://jhale.github.io/cism-varfrac-code/.
 
-**If you have issues installing FEniCSx please contact Jack S. Hale via the
-special CISM Variational Fracture Slack you have received via email**.
+**If you have issues installing FEniCSx please contact Jack S. Hale on the
+special CISM Variational Fracture Slack invite you have received via email,
+prior to the course start.**.
 
 ## Installation instructions
 
-The *strongly recommended* approach for installing the software is using
-Docker. By using Docker we ensure a consistent software environment across all
-participants and minimal use of the WiFi. As alternatives, we also provide
-instructions for [Google Colab](https://colab.research.google.com) and
+The *recommended* approach for installing the software is using Docker. By
+using Docker we ensure a consistent software environment across all
+participants and minimal use of the wireless network. As alternatives, we also
+provide instructions for [Google Colab](https://colab.research.google.com) and
 [Anaconda](https://www.anaconda.com/download) (`conda`).
 
 ### Docker
@@ -66,11 +67,27 @@ instructions for [Google Colab](https://colab.research.google.com) and
 
 1. Download the [Anaconda Python distribution](https://www.anaconda.com/download).
 
-2. Create a new enviroment:
+2. Create and activate a new `conda` enviroment:
 
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       mkdir cism 
+       curl -o environment.yml https://raw.githubusercontent.com/jhale/cism-varfrac-code/main/environment.yml
+       conda env create -f environment.yml
+       conda activate fenicsx-cism-2024
+
+3. Launch a Jupyter lab environment in your browser:
+
+       jupyter-lab .
+
+4. Click `File > New > Notebook` in the top menu. Use the Python 3 (ipykernel)
+   kernel by pressing `Select`. In the first notebook cell type:
+
+       import dolfinx
+       import pyvista
+       import gmsh
+   
+   and then press `Shift + Enter` to execute the cell. You should receive no
+   errors (e.g. `ModuleNotFoundError`).
 
 ### Google Colab
 
