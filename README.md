@@ -2,7 +2,24 @@
 
 ## Introduction
 
+This repository contains source code for the computational examples presented
+at the 9th CISM-ECCOMAS Advanced Course on Variational Fracture Mechanics and
+Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
+The built book can be read at: **INSERT LINK**.
+
+## Installation instructions
+
+The *strongly recommended* approach for installing the software for the course
+is using Docker. By using Docker we can ensure that we have a consistent
+software environment across all participants. As alternatives, we also provide
+instructions for [Google Colab](https://colab.research.google.com) and
+[Anaconda](https://www.anaconda.com/download) (`conda`).
+
+### Docker
+
+1. Install Docker Desktop on your system following the instructions
+   [here](https://www.docker.com/products/docker-desktop/).
 
 ## Authors
 
