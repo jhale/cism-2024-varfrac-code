@@ -289,18 +289,24 @@ def sigma(eps, alpha):
 # 1. Show that it is possible to relate the dissipation constant $w_1$ to the energy
 # dissipated in a smeared representation of a crack through the following
 # relation:
+#
 # $$
 # {G_c}={c_w}\,w_1\ell,\qquad c_w = 4\int_0^1\sqrt{w(\alpha)}d\alpha
 # $$
+#
 # 2. The half-width of a localisation zone is given by:
+#
 # $$
 # D =  c_{1/w} \ell,\qquad c_{1/w}=\int_0^1 \frac{1}{\sqrt{w(\alpha)}}d\alpha
 # $$
+#
 # 3. The elastic limit of the material is:
+#
 # $$
 # \sigma_c = \sqrt{w_1\,E_0}\sqrt{\dfrac{2w'(0)}{s'(0)}}= \sqrt{\dfrac{G_cE_0}{\ell c_w}}
 # \sqrt{\dfrac{2w'(0)}{s'(0)}}
 # $$
+#
 # *Hint:* Calculate the damage profile and the energy of a localised solution
 # with vanishing stress in a 1d traction problem
 #
