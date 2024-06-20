@@ -8,9 +8,9 @@ Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
 The built book can be read at https://jhale.github.io/cism-varfrac-code/.
 
-**If you have issues installing FEniCSx please contact Jack S. Hale on the
-special CISM Variational Fracture Slack invite you have received via email,
-prior to the course start.**.
+**If you have issues installing FEniCSx please contact Jack S. Hale in the
+#installation channel on the special CISM Variational Fracture Slack invite you
+have received via email, prior to the course start.**.
 
 ## Installation instructions
 
