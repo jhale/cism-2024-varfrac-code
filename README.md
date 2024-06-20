@@ -6,13 +6,16 @@ This repository contains source code for the computational examples presented
 at the 9th CISM-ECCOMAS Advanced Course on Variational Fracture Mechanics and
 Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
-The built book can be read at: **INSERT LINK**.
+The built book can be read at https://jhale.github.io/cism-varfrac-code/.
+
+**If you have issues installing FEniCSx please contact Jack S. Hale via the
+special CISM Variational Fracture Slack you have received via email**.
 
 ## Installation instructions
 
-The *strongly recommended* approach for installing the software for the course
-is using Docker. By using Docker we can ensure that we have a consistent
-software environment across all participants. As alternatives, we also provide
+The *strongly recommended* approach for installing the software is using
+Docker. By using Docker we ensure a consistent software environment across all
+participants and minimal use of the WiFi. As alternatives, we also provide
 instructions for [Google Colab](https://colab.research.google.com) and
 [Anaconda](https://www.anaconda.com/download) (`conda`).
 
@@ -20,6 +23,70 @@ instructions for [Google Colab](https://colab.research.google.com) and
 
 1. Install Docker Desktop on your system following the instructions
    [here](https://www.docker.com/products/docker-desktop/).
+
+2. Pull the DOLFINx laboratory image.
+
+       docker pull dolfinx/lab:v0.8.0
+
+3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell.
+
+       mkdir ~/cism-varfrac-course
+       cd ~/cism-varfrac-course
+       docker run -ti -v $(pwd):/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0 
+
+4. (Windows Powershell). Start a DOLFINx laboratory container using
+   Powershell. 
+       
+       mkdir ~/cism-varfrac-course
+       cd ~/cism-varfrac-course
+       docker run -ti -v $(PWD):/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0
+
+5. A URL e.g.
+   `http://127.0.0.1:8888/lab?token=544f7380ab06eb1d175d8c2b35a362e7fd7a29471b56818c`
+   will be printed to the terminal. Copy this to a web browser. You should see
+   the Jupyter notebook environment open.
+
+6. (macOS Apple Silicon only) To install `pyvista` go to `File > New >
+   Terminal` in the top menu, then run:
+    
+        python3 -m pip install "https://github.com/finsberg/vtk-aarch64/releases/download/vtk-9.2.6-cp310/vtk-9.2.6.dev0-cp310-cp310-linux_aarch64.whl"
+        python3 -m pip install pyvista
+
+7. Click `File > New > Notebook` in the top menu. Use the Python 3 (ipykernel)
+   kernel by pressing `Select`. In the first notebook cell type:
+
+       import dolfinx
+       import pyvista
+       import gmsh
+
+   and then press `Shift + Enter` to execute the cell. You should receive no
+   errors (e.g. `ModuleNotFoundError`).
+
+### Conda (macOS and Linux)
+
+1. Download the [Anaconda Python distribution](https://www.anaconda.com/download).
+
+2. Create a new enviroment:
+
+       mkdir ~/cism-varfrac-course
+       cd ~/cism-varfrac-course
+       mkdir cism 
+
+### Google Colab
+
+1. Go to [Google Colab](https://colab.research.google.com) and create a new
+   notebook. We will use the FEM on Colab project to install FEniCSx. Copy and
+   paste into a new notebook cell:
+
+       try:
+           import dolfinx
+       except ImportError:
+           !wget "https://fem-on-colab.github.io/releases/fenicsx-install-real.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh"
+       import dolfinx
+
+    and press `Shift+Enter`. You should see output from the install process and
+    no errors.
+
 
 ## Authors
 

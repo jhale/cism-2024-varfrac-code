@@ -1,0 +1,9 @@
+name: fenicsx-cism-2024
+channels:
+  - conda-forge
+dependencies:
+  - fenics-dolfinx
+  - gmsh
+  - pyvista
+  - python-gmsh
+  - jupyterlab
