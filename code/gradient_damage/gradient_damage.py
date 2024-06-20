@@ -19,6 +19,7 @@
 #
 # Denote $u$ the displacement field (vector-valued) and by $\alpha$
 # (scalar-valued) the damage field. We consider the energy functional
+#
 # $$
 # \mathcal{E}_{\ell}(u, \alpha)=
 # \dfrac{1}{2}\int_{\Omega} a({\alpha})
