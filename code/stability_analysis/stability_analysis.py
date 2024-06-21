@@ -80,6 +80,7 @@ alpha = fem.Function(V_alpha, name="damage")
 
 alpha_lb = dolfinx.fem.Function(V_alpha, name="lower bound")
 alpha_ub = dolfinx.fem.Function(V_alpha, name="upper bound")
+alpha_ub.x.array[:] = 1.0
 
 dx = ufl.Measure("dx", domain=msh)
 ds = ufl.Measure("ds", domain=msh, subdomain_data=ft)
@@ -103,3 +104,18 @@ dofs_ux_right = dolfinx.fem.locate_dofs_topological(
 dofs_uy_left = dolfinx.fem.locate_dofs_topological(
     V_u.sub(1), msh.topology.dim - 1, ft.find(fm["left"])
 )
+
+ux_right = fem.Constant(msh, 0.0)
+bcs_u = [
+    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_ux_left, V_u.sub(0)),
+    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_uy_left, V_u.sub(1)),
+    fem.dirichletbc(ux_right, dofs_ux_right, V_u.sub(0)),
+]
+
+bcs_alpha = [
+    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_left, V_alpha),
+    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_right, V_alpha),
+]
+
+# Set boundary condition on damage upper bound
+

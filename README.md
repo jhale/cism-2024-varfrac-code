@@ -93,8 +93,8 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 ### Google Colab
 
 1. Go to [Google Colab](https://colab.research.google.com) and create a new
-   notebook. We will use the FEM on Colab project to install FEniCSx. Copy and
-   paste into a new notebook cell:
+   notebook. We will use the [FEM on Colab](https://fem-on-colab.github.io)
+   project to install FEniCSx. Copy and paste into a new notebook cell:
 
        try:
            import dolfinx
@@ -109,9 +109,7 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 ## Authors
 
 - Jack S. Hale, University of Luxembourg.
-
 - Laura de Lorenzis, ETH Zurich.
-
 - Corrado Maurini, Sorbonne Université.
 
 ## Credits
