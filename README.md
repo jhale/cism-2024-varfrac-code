@@ -33,14 +33,14 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v $(pwd):/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0 
+       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0 
 
 4. (Windows Powershell). Start a DOLFINx laboratory container using
    Powershell: 
        
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v $(PWD):/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0
+       docker run -ti -v "$(PWD)":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0
 
 5. A URL e.g.
    `http://127.0.0.1:8888/lab?token=544f7380ab06eb1d175d8c2b35a362e7fd7a29471b56818c`
