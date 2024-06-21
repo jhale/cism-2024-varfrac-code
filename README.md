@@ -6,7 +6,7 @@ This repository contains source code for the computational examples presented
 at the 9th CISM-ECCOMAS Advanced Course on Variational Fracture Mechanics and
 Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
-The built book can be read at https://jhale.github.io/cism-varfrac-code/.
+The built book can be read at https://jhale.github.io/cism-2024-varfrac-code/.
 
 **If you have issues installing FEniCSx please contact Jack S. Hale in the
 #installation channel on the special CISM Variational Fracture Slack invite you
@@ -113,6 +113,16 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
 - Corrado Maurini, Sorbonne Université.
 
+## Credits
+
+This work includes elements from [Computational fracture mechanics examples
+with FEniCSx](https://github.com/newfrac/fenicsx-fracture) under the terms of
+the BSD license.
+
+This work includes elements from [NewFrac FEniCSx
+training](https://newfrac.gitlab.io/newfrac-fenicsx-training/) under the terms
+of the MIT license.
+
 ## Developer instructions
 
 ### Building
@@ -157,13 +167,3 @@ To install pyvista in ARM docker:
 
     python3 -m pip install "https://github.com/finsberg/vtk-aarch64/releases/download/vtk-9.2.6-cp310/vtk-9.2.6.dev0-cp310-cp310-linux_aarch64.whl"
     python3 -m pip install pyvista
-
-### Credits
-
-This work includes elements from [Computational fracture mechanics examples
-with FEniCSx](https://github.com/newfrac/fenicsx-fracture) under the terms of
-the BSD license.
-
-This work includes elements from [NewFrac FEniCSx
-training](https://newfrac.gitlab.io/newfrac-fenicsx-training/) under the terms
-of the MIT license.
