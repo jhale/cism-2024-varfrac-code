@@ -76,4 +76,62 @@ def generate_mesh_with_crack(
         msh.name = "rectangle"
         cell_tags.name = f"{msh.name}_cells"
         facet_tags.name = f"{msh.name}_facets"
+
+        return msh, cell_tags, facet_tags
+
+
+def generate_bar_mesh(
+    Lx, Ly, lc
+):
+    """
+    Create two-dimensional rectangle mesh using gmsh Python API.
+    """
+    mesh_comm = MPI.COMM_WORLD
+    model_rank = 0
+    gmsh.initialize()
+    gdim = 2
+    tdim = 2
+
+    if mesh_comm.rank == model_rank:
+        gmsh.option.setNumber("Mesh.Algorithm", 5)
+        gmsh.model.mesh.optimize("Netgen")
+
+        model = gmsh.model()
+        model.add("Rectangle")
+        model.setCurrent("Rectangle")
+        p0 = model.geo.addPoint(0.0, 0.0, 0.0, lc, tag=0)
+        p1 = model.geo.addPoint(Lx, 0.0, 0.0, lc, tag=1)
+        p2 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=2)
+        p3 = model.geo.addPoint(0, Ly, 0.0, lc, tag=3)
+        bottom = model.geo.addLine(p0, p1)
+        right = model.geo.addLine(p1, p2)
+        top = model.geo.addLine(p2, p3)
+        left = model.geo.addLine(p3, p0)
+        cloop1 = model.geo.addCurveLoop([bottom, right, top, left])
+        model.geo.addPlaneSurface([cloop1])
+
+        model.geo.synchronize()
+        surface_entities = [model[1] for model in model.getEntities(tdim)]
+        model.addPhysicalGroup(tdim, surface_entities, tag=5)
+        model.setPhysicalName(tdim, 5, "Rectangle surface")
+
+        # Set geometric order of mesh cells
+        gmsh.model.mesh.setOrder(1)
+        gmsh.model.addPhysicalGroup(tdim - 1, [3, 0], tag=6)
+        gmsh.model.setPhysicalName(tdim - 1, 6, "left")
+        gmsh.model.addPhysicalGroup(tdim - 1, [1, 2], tag=7)
+        gmsh.model.setPhysicalName(tdim - 1, 7, "right")
+        gmsh.model.addPhysicalGroup(tdim - 1, [2, 3], tag=8)
+        gmsh.model.setPhysicalName(tdim - 1, 8, "top")
+        gmsh.model.addPhysicalGroup(tdim - 1, [0, 1], tag=9)
+        gmsh.model.setPhysicalName(tdim - 1, 9, "bottom")
+
+        model.mesh.generate(tdim)
+
+        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, mesh_comm, model_rank, gdim=gdim)
+        gmsh.finalize()
+        msh.name = "rectangle"
+        cell_tags.name = f"{msh.name}_cells"
+        facet_tags.name = f"{msh.name}_facets"
+
         return msh, cell_tags, facet_tags
