@@ -80,9 +80,7 @@ def generate_mesh_with_crack(
         return msh, cell_tags, facet_tags
 
 
-def generate_bar_mesh(
-    Lx, Ly, lc
-):
+def generate_bar_mesh(Lx, Ly, lc):
     """
     Create two-dimensional rectangle mesh using gmsh Python API.
     """
@@ -92,39 +90,37 @@ def generate_bar_mesh(
     gdim = 2
     tdim = 2
 
+    cell_map = {"rectangle": 0}
+    facet_map = {"left": 1, "right": 2, "top": 3, "bottom": 4}
+
     if mesh_comm.rank == model_rank:
         gmsh.option.setNumber("Mesh.Algorithm", 5)
         gmsh.model.mesh.optimize("Netgen")
 
         model = gmsh.model()
-        model.add("Rectangle")
-        model.setCurrent("Rectangle")
-        p0 = model.geo.addPoint(0.0, 0.0, 0.0, lc, tag=0)
-        p1 = model.geo.addPoint(Lx, 0.0, 0.0, lc, tag=1)
-        p2 = model.geo.addPoint(Lx, Ly, 0.0, lc, tag=2)
-        p3 = model.geo.addPoint(0, Ly, 0.0, lc, tag=3)
-        bottom = model.geo.addLine(p0, p1)
-        right = model.geo.addLine(p1, p2)
-        top = model.geo.addLine(p2, p3)
-        left = model.geo.addLine(p3, p0)
+        model.add("rectangle")
+        model.setCurrent("rectangle")
+        p0 = model.geo.addPoint(0.0, 0.0, 0.0, lc)
+        p1 = model.geo.addPoint(Lx, 0.0, 0.0, lc)
+        p2 = model.geo.addPoint(Lx, Ly, 0.0, lc)
+        p3 = model.geo.addPoint(0, Ly, 0.0, lc)
+        bottom = model.geo.addLine(p0, p1, tag=facet_map["bottom"])
+        right = model.geo.addLine(p1, p2, tag=facet_map["right"])
+        top = model.geo.addLine(p2, p3, tag=facet_map["top"])
+        left = model.geo.addLine(p3, p0, tag=facet_map["left"])
         cloop1 = model.geo.addCurveLoop([bottom, right, top, left])
         model.geo.addPlaneSurface([cloop1])
 
         model.geo.synchronize()
         surface_entities = [model[1] for model in model.getEntities(tdim)]
-        model.addPhysicalGroup(tdim, surface_entities, tag=5)
-        model.setPhysicalName(tdim, 5, "Rectangle surface")
+        model.addPhysicalGroup(tdim, surface_entities, tag=0)
+        model.setPhysicalName(tdim, 0, "rectangle")
 
         # Set geometric order of mesh cells
         gmsh.model.mesh.setOrder(1)
-        gmsh.model.addPhysicalGroup(tdim - 1, [3, 0], tag=6)
-        gmsh.model.setPhysicalName(tdim - 1, 6, "left")
-        gmsh.model.addPhysicalGroup(tdim - 1, [1, 2], tag=7)
-        gmsh.model.setPhysicalName(tdim - 1, 7, "right")
-        gmsh.model.addPhysicalGroup(tdim - 1, [2, 3], tag=8)
-        gmsh.model.setPhysicalName(tdim - 1, 8, "top")
-        gmsh.model.addPhysicalGroup(tdim - 1, [0, 1], tag=9)
-        gmsh.model.setPhysicalName(tdim - 1, 9, "bottom")
+        for key, value in facet_map.items():
+            model.addPhysicalGroup(tdim - 1, [value], tag=value)
+            model.setPhysicalName(tdim - 1, value, key)
 
         model.mesh.generate(tdim)
 
@@ -135,4 +131,4 @@ def generate_bar_mesh(
         cell_tags.name = f"{msh.name}_cells"
         facet_tags.name = f"{msh.name}_facets"
 
-        return msh, cell_tags, facet_tags
+        return msh, cell_tags, facet_tags, cell_map, facet_map

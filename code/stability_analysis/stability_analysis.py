@@ -6,7 +6,8 @@
 #       format_name: light
 # ---
 
-# +
+# + [markdown]
+
 import sys
 
 import numpy as np
@@ -53,7 +54,7 @@ load_elastic = np.linspace(0, 0.95 * t_c, 10)[:-1]
 load_damage = np.linspace(0.95 * t_c, 1.3 * np.max([t_star, t_c]), num_steps)
 loads = np.concatenate((load_elastic, load_damage)) / t_c
 
-msh, mt, ft = generate_bar_mesh(Lx=Lx, Ly=Ly, lc=lc)
+msh, mt, ft, mm, fm = generate_bar_mesh(Lx=Lx, Ly=Ly, lc=lc)
 
 import pyvista  # noqa: E402
 
@@ -83,5 +84,22 @@ alpha_ub = dolfinx.fem.Function(V_alpha, name="upper bound")
 dx = ufl.Measure("dx", domain=msh)
 ds = ufl.Measure("ds", domain=msh, subdomain_data=ft)
 
-print(dir(ft))
-print(ft.find(9))
+dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
+    V_alpha, msh.topology.dim - 1, ft.find(fm["left"])
+)
+
+dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
+    V_alpha, msh.topology.dim - 1, ft.find(fm["right"])
+)
+
+dofs_ux_left = dolfinx.fem.locate_dofs_topological(
+    V_u.sub(0), msh.topology.dim - 1, ft.find(fm["left"])
+)
+
+dofs_ux_right = dolfinx.fem.locate_dofs_topological(
+    V_u.sub(0), msh.topology.dim - 1, ft.find(fm["right"])
+)
+
+dofs_uy_left = dolfinx.fem.locate_dofs_topological(
+    V_u.sub(1), msh.topology.dim - 1, ft.find(fm["left"])
+)
