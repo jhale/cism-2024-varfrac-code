@@ -321,10 +321,10 @@ print("c_1/w = ", c_1w)
 
 tmp = 2 * (sympy.diff(w(z), z) / sympy.diff(1 / a(z), z)).subs({"z": 0})
 sigma_c = sympy.sqrt(tmp * Gc.value * E.value / (c_w * ell.value))
-print("sigma_c = %2.3f" % sigma_c)
+print("sigma_c = {sigma_c}")
 
 eps_c = float(sigma_c / E.value)
-print("eps_c = %2.3f" % eps_c)
+print(f"eps_c = {eps_c}")
 
 # + [markdown]
 # ### Energy functional and its derivatives
