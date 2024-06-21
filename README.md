@@ -87,7 +87,8 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
        import gmsh
    
    and then press `Shift + Enter` to execute the cell. You should receive no
-   errors (e.g. `ModuleNotFoundError`).
+   errors (e.g. `ModuleNotFoundError`). If macOS asks about accepting incoming
+   network connections, click Allow.
 
 ### Google Colab
 
