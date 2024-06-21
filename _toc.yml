@@ -4,3 +4,4 @@ root: README.md
 chapters:
   - file: "code/linear_elasticity/linear_elasticity.py"
   - file: "code/gradient_damage/gradient_damage.py"
+  - file: "code/stability_analysis/stability_analysis.py"

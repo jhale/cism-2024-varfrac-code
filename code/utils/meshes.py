@@ -130,6 +130,7 @@ def generate_bar_mesh(
 
         msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, mesh_comm, model_rank, gdim=gdim)
         gmsh.finalize()
+        
         msh.name = "rectangle"
         cell_tags.name = f"{msh.name}_cells"
         facet_tags.name = f"{msh.name}_facets"
