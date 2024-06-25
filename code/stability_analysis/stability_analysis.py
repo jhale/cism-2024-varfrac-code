@@ -240,13 +240,44 @@ solver_alpha_snes.getKSP().getPC().setType("lu")
 # We set the bound
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 
-# Let us now test the damage solver
-solver_alpha_snes.solve(None, alpha.vector)
+def simple_monitor(u, alpha, iteration, error_L2):
+    print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-# Run alternate minimisation
-def alternate_minimisation(u, alpha):
-    pass
+def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_monitor):
+    alpha_old = fem.Function(alpha.function_space)
+    alpha_old.x.array[:] = alpha.x.array
 
+    for iteration in range(max_iter):
+        # Solve displacement
+        solver_u_snes.solve(None, u.vector)
+
+        # Solve damage
+        solver_alpha_snes.solve(None, alpha.vector)
+
+        # check error and update
+        L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
+        error_L2 = np.sqrt(fem.assemble_scalar(fem.form(L2_error)))
+        alpha.vector.copy(alpha_old.vector)
+
+        if monitor is not None:
+            monitor(u, alpha, iteration, error_L2)
+
+        if error_L2 <= atol:
+            return (error_L2, iteration)
+
+    raise RuntimeError(f"Could not converge after {max_iter} iterations, error {error_L2:3.4e}")
+
+print(loads)
+
+for i_t, t in enumerate(loads):
+    ux_right.value = t * t_c
+
+    print(f"-- Solving for t = {t:3.2f} --")
+    
+    # Update the lower bound to ensure irreversibility of damage field.
+    alpha.vector.copy(alpha_lb.vector)
+    alpha_lb.x.scatter_forward()
+    alternate_minimization(u, alpha)
 
 # Check stability using reduced system (SLEPc).
