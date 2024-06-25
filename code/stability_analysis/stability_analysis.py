@@ -36,7 +36,7 @@ Ly = 0.1  # Size of domain in y-direction
 # Define free parameters. Table 1 Zelosi and Maurini, first row.
 G_c = 1.0  # Fracture toughness.
 E_0 = 1.0  # Young's modulus.
-ell = 0.025  # Regularisation length scale.
+ell = 0.05  # Regularisation length scale.
 
 # Additional parameters
 nu_0 = 0.3  # Poisson's ratio.
@@ -55,10 +55,8 @@ t_c = sigma_c / E_0
 t_f = gamma_traction * t_c
 t_star = 2 * np.pi * ell / Lx * w_1 / sigma_c
 
-load_elastic = np.linspace(0.0, 0.95 * t_c, pre_damage_num_steps)[:-1]
-load_damage = np.linspace(0.95 * t_c, 1.3 * np.max([t_star, t_c]), post_damage_num_steps)
-loads = np.concatenate((load_elastic, load_damage)) / t_c
-
+loads = np.linspace(0.0, t_c, pre_damage_num_steps)
+print(loads)
 msh, mt, ft, mm, fm = generate_bar_mesh(Lx=Lx, Ly=Ly, lc=lc)
 
 import pyvista  # noqa: E402
@@ -126,9 +124,6 @@ bcs_alpha = [
 fem.set_bc(alpha_ub.x.array, bcs_alpha)
 alpha_ub.x.scatter_forward()
 
-gamma_mu = gamma_traction
-gamma_kappa = gamma_traction
-
 
 def eps(u):
     return ufl.sym(ufl.grad(u))
@@ -138,7 +133,7 @@ def w(alpha):
     return 1.0 - (1.0 - alpha) ** 2
 
 
-def a(alpha, gamma=gamma_traction, kres=0.0e-9):
+def a(alpha, gamma=gamma_traction, kres=1.0e-8):
     return (1.0 - w(alpha)) / (1.0 + w(alpha) * (gamma - 1.0)) + kres
 
 
@@ -211,13 +206,10 @@ solver_u_snes = PETSc.SNES().create()
 solver_u_snes.setType("ksponly")
 solver_u_snes.setFunction(elastic_problem.F, b_u)
 solver_u_snes.setJacobian(elastic_problem.J, J_u)
-solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
+solver_u_snes.setTolerances(rtol=1.0e-8, max_it=50)
 solver_u_snes.getKSP().setType("preonly")
-solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
+solver_u_snes.getKSP().setTolerances(rtol=1.0e-8)
 solver_u_snes.getKSP().getPC().setType("lu")
-
-ux_right.value = loads[1]
-solver_u_snes.solve(None, u.vector)
 
 # Setup damage problem.
 E_alpha = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
@@ -233,9 +225,8 @@ solver_alpha_snes = PETSc.SNES().create()
 solver_alpha_snes.setType("vinewtonrsls")
 solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
 solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
-solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
+solver_alpha_snes.setTolerances(rtol=1.0e-8, max_it=50)
 solver_alpha_snes.getKSP().setType("preonly")
-solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
 # We set the bound
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
@@ -244,7 +235,7 @@ def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_monitor):
+def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_monitor):
     alpha_old = fem.Function(alpha.function_space)
     alpha_old.x.array[:] = alpha.x.array
 

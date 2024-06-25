@@ -4,6 +4,7 @@ channels:
 dependencies:
   - fenics-dolfinx
   - gmsh
+  - jupyterlab
   - pyvista
   - python-gmsh
-  - jupyterlab
+  - sympy
