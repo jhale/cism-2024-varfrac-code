@@ -1,6 +1,7 @@
 jupyter-book
 jupytext
 sympy
-fenics-dolfinx
+fenics-dolfinx>=0.8.0
 gmsh
 pyvista
+dolfiny@git+https://github.com/michalhabera/dolfiny@v0.8.0
