@@ -10,6 +10,8 @@
 
 import sys
 
+from petsc4py import PETSc
+
 import numpy as np
 
 import basix
@@ -17,17 +19,19 @@ import basix.ufl
 import dolfinx
 import dolfinx.fem as fem
 import dolfinx.fem.petsc
+import dolfinx.la as la
 import dolfinx.plot as plot
 import ufl
 
 sys.path.append("../utils/")
 
 from meshes import generate_bar_mesh
+from petsc_problems import SNESProblem
 
 # By dimensional analysis
 sigma_c = 1.0  #
 Lx = 1.0  # Size of domain in x-direction
-Ly = 0.1  # Size od domain in y-direction
+Ly = 0.1  # Size of domain in y-direction
 
 # Define free parameters. Table 1 Zelosi and Maurini, first row.
 G_c = 1.0  # Fracture toughness.
@@ -38,7 +42,8 @@ ell = 0.025  # Regularisation length scale.
 nu_0 = 0.3  # Poisson's ratio.
 
 # Computational parameters
-num_steps = 50  # Number of load steps
+pre_damage_num_steps = 10  # Number of load steps before damage
+post_damage_num_steps = 50  # Number of load steps after damage
 lc = ell / 5.0  # Characteristic mesh size
 
 # Derived quantities
@@ -50,8 +55,8 @@ t_c = sigma_c / E_0
 t_f = gamma_traction * t_c
 t_star = 2 * np.pi * ell / Lx * w_1 / sigma_c
 
-load_elastic = np.linspace(0, 0.95 * t_c, 10)[:-1]
-load_damage = np.linspace(0.95 * t_c, 1.3 * np.max([t_star, t_c]), num_steps)
+load_elastic = np.linspace(0.0, 0.95 * t_c, pre_damage_num_steps)[:-1]
+load_damage = np.linspace(0.95 * t_c, 1.3 * np.max([t_star, t_c]), post_damage_num_steps)
 loads = np.concatenate((load_elastic, load_damage)) / t_c
 
 msh, mt, ft, mm, fm = generate_bar_mesh(Lx=Lx, Ly=Ly, lc=lc)
@@ -118,4 +123,130 @@ bcs_alpha = [
 ]
 
 # Set boundary condition on damage upper bound
+fem.set_bc(alpha_ub.x.array, bcs_alpha)
+alpha_ub.x.scatter_forward()
 
+gamma_mu = gamma_traction
+gamma_kappa = gamma_traction
+
+
+def eps(u):
+    return ufl.sym(ufl.grad(u))
+
+
+def w(alpha):
+    return 1.0 - (1.0 - alpha) ** 2
+
+
+def a(alpha, gamma=gamma_traction, kres=0.0e-9):
+    return (1.0 - w(alpha)) / (1.0 + w(alpha) * (gamma - 1.0)) + kres
+
+
+def mu(alpha, gamma=gamma_traction):
+    return dolfinx.fem.Constant(msh, mu_0) * a(alpha, gamma=fem.Constant(msh, gamma_traction))
+
+
+def kappa(alpha, gamma=gamma_traction):
+    return dolfinx.fem.Constant(msh, kappa_0) * a(
+        alpha, gamma=dolfinx.fem.Constant(msh, gamma_traction)
+    )
+
+
+def damage_dissipation_density(alpha):
+    grad_alpha = ufl.grad(alpha)
+    w_1_ = dolfinx.fem.Constant(msh, w_1)
+    ell_2 = dolfinx.fem.Constant(msh, ell * ell)
+    return w_1_ * (w(alpha) + ell_2 * ufl.inner(grad_alpha, grad_alpha))
+
+
+def elastic_deviatoric_energy_density(eps, alpha):
+    return mu(alpha) * ufl.inner(ufl.dev(eps), ufl.dev(eps))
+
+
+def elastic_isotropic_energy_density(eps, alpha):
+    return 0.5 * kappa(alpha) * ufl.tr(eps) * ufl.tr(eps)
+
+
+def elastic_energy_density(eps, alpha):
+    return elastic_deviatoric_energy_density(eps, alpha) + elastic_isotropic_energy_density(
+        eps, alpha
+    )
+
+
+def total_energy(u, alpha):
+    return elastic_energy_density(eps(u), alpha) * dx + damage_dissipation_density(alpha) * dx
+
+
+def sigma(eps, alpha):
+    eps_ = ufl.variable(eps)
+    sigma = ufl.diff(elastic_energy_density(eps_, alpha), eps_)
+    return sigma
+
+
+energy = total_energy(u, alpha)
+
+# Overall algorithm:
+# 1. Continuation in displacement (outer loop).
+# 2. Find minima using alternate minimisation.
+# 3. Assess stability of reduced fully coupled problem.
+# a. Assemble full Jacobian and residual.
+# b. Identify active set.
+# c. Remove degrees of freedom in the active set from the damage problem.
+# d. Find eigenvalues of reduced block problem (dolfiny?).
+
+# Move this all out to function.
+E_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
+E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
+elastic_problem = SNESProblem(E_u, u, bcs_u, J=E_u_u)
+
+b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
+J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
+
+b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
+J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
+
+
+# Setup linear elasticity problem and solve
+solver_u_snes = PETSc.SNES().create()
+solver_u_snes.setType("ksponly")
+solver_u_snes.setFunction(elastic_problem.F, b_u)
+solver_u_snes.setJacobian(elastic_problem.J, J_u)
+solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
+solver_u_snes.getKSP().setType("preonly")
+solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
+solver_u_snes.getKSP().getPC().setType("lu")
+
+ux_right.value = loads[1]
+solver_u_snes.solve(None, u.vector)
+
+# Setup damage problem.
+E_alpha = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
+E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
+
+damage_problem = SNESProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
+
+b_alpha = la.create_petsc_vector(V_alpha.dofmap.index_map, V_alpha.dofmap.index_map_bs)
+J_alpha = fem.petsc.create_matrix(damage_problem.a)
+
+# Create Newton variational inequality solver and solve
+solver_alpha_snes = PETSc.SNES().create()
+solver_alpha_snes.setType("vinewtonrsls")
+solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
+solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
+solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
+solver_alpha_snes.getKSP().setType("preonly")
+solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
+solver_alpha_snes.getKSP().getPC().setType("lu")
+# We set the bound
+solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
+
+# Let us now test the damage solver
+solver_alpha_snes.solve(None, alpha.vector)
+
+
+# Run alternate minimisation
+def alternate_minimisation(u, alpha):
+    pass
+
+
+# Check stability using reduced system (SLEPc).
