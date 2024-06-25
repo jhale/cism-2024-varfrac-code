@@ -44,8 +44,8 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
 4. (Windows cmd). Start a DOLFINx laboratory container using Windows cmd.
        
-       mkdir %HOMEPATH%/cism-varfrac-course
-       cd %HOMEPATH%/cism-varfrac-course
+       mkdir %HOMEPATH%\cism-varfrac-course
+       cd %HOMEPATH%\cism-varfrac-course
        docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0
 
 5. A URL e.g.
