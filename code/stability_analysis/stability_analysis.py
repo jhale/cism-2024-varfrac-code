@@ -56,7 +56,6 @@ t_f = gamma_traction * t_c
 t_star = 2 * np.pi * ell / Lx * w_1 / sigma_c
 
 loads = np.linspace(0.0, t_c, pre_damage_num_steps)
-print(loads)
 msh, mt, ft, mm, fm = generate_bar_mesh(Lx=Lx, Ly=Ly, lc=lc)
 
 import pyvista  # noqa: E402
@@ -228,8 +227,8 @@ solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
 solver_alpha_snes.setTolerances(rtol=1.0e-8, max_it=50)
 solver_alpha_snes.getKSP().setType("preonly")
 solver_alpha_snes.getKSP().getPC().setType("lu")
-# We set the bound
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
+
 
 def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
@@ -259,16 +258,30 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 
     raise RuntimeError(f"Could not converge after {max_iter} iterations, error {error_L2:3.4e}")
 
-print(loads)
+
+# Define the fully coupled block problem for stability analysis
+element_lmbda = basix.ufl.element("Lagrange", msh.basix_cell(), degree=0, discontinuous=True)
+V_lmbda = fem.functionspace(msh, element_lmbda)
+lmbda = fem.Function(V_lmbda)
+
+# Block residual
+F = [None] * 2
+F[0] = ufl.derivative(energy + lmbda * ufl.inner(u, u) * dx, u, ufl.TestFunction(V_u))
+F[1] = ufl.derivative(
+    energy + lmbda * ufl.inner(alpha, alpha) * dx, alpha, ufl.TestFunction(V_alpha)
+)
+
+# TODO: Block Jacobian
+J = [[None] * 2] * 2
 
 for i_t, t in enumerate(loads):
     ux_right.value = t * t_c
 
     print(f"-- Solving for t = {t:3.2f} --")
-    
+
     # Update the lower bound to ensure irreversibility of damage field.
     alpha.vector.copy(alpha_lb.vector)
     alpha_lb.x.scatter_forward()
     alternate_minimization(u, alpha)
 
-# Check stability using reduced system (SLEPc).
+    # TODO: Check stability using reduced system (SLEPc).
