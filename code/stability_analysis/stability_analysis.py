@@ -266,11 +266,9 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 # Block residual
 F = [None for i in range(2)]
 F[0] = ufl.derivative(energy, u, ufl.TestFunction(V_u))
-F[1] = ufl.derivative(
-    energy, alpha, ufl.TestFunction(V_alpha)
-)
+F[1] = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
 
-# Block A 
+# Block A
 A = [[None for i in range(2)] for j in range(2)]
 A[0][0] = ufl.derivative(F[0], u, ufl.TrialFunction(V_u))
 A[0][1] = ufl.derivative(F[0], alpha, ufl.TrialFunction(V_alpha))
@@ -280,8 +278,8 @@ A[1][1] = ufl.derivative(F[1], alpha, ufl.TrialFunction(V_alpha))
 # Block B
 # TODO: Should be done from associated energy (inertia/mass).
 B = [[None for i in range(2)] for j in range(2)]
-B[0][0] = ufl.inner(ufl.TrialFunction(V_u), ufl.TestFunction(V_u))*dx 
-B[1][1] = ufl.inner(ufl.TrialFunction(V_alpha), ufl.TestFunction(V_alpha))*dx
+B[0][0] = ufl.inner(ufl.TrialFunction(V_u), ufl.TestFunction(V_u)) * dx
+B[1][1] = ufl.inner(ufl.TrialFunction(V_alpha), ufl.TestFunction(V_alpha)) * dx
 
 A_form = fem.form(A)
 B_form = fem.form(B)
@@ -316,4 +314,6 @@ for i_t, t in enumerate(loads):
 
     restriction = Restriction([V_u, V_alpha], [u_inactive_set, alpha_inactive_set])
 
-    # Check stability using reduced system using SLEPc.
+    # Create restricted operators.
+    A_restricted = restriction.restrict_matrix(A)
+    B_restricted = restriction.restrict_matrix(B)
