@@ -11,6 +11,7 @@
 import sys
 
 from petsc4py import PETSc
+from slepc4py import SLEPc
 
 import numpy as np
 
@@ -21,6 +22,7 @@ import dolfinx.fem as fem
 import dolfinx.fem.petsc
 import dolfinx.la as la
 import dolfinx.plot as plot
+from dolfiny.restriction import Restriction
 import ufl
 
 sys.path.append("../utils/")
@@ -118,6 +120,8 @@ bcs_alpha = [
     fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_left, V_alpha),
     fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_right, V_alpha),
 ]
+
+bcs_all = bcs_u + bcs_alpha
 
 # Set boundary condition on damage upper bound
 fem.set_bc(alpha_ub.x.array, bcs_alpha)
@@ -271,8 +275,34 @@ F[1] = ufl.derivative(
     energy + lmbda * ufl.inner(alpha, alpha) * dx, alpha, ufl.TestFunction(V_alpha)
 )
 
-# TODO: Block Jacobian
-J = [[None] * 2] * 2
+# Block M
+M = [[None] * 2] * 2
+M[0][0] = ufl.derivative(F[0], u, ufl.TrialFunction(V_u))
+M[0][1] = ufl.derivative(F[0], alpha, ufl.TrialFunction(V_alpha))
+M[1][0] = ufl.derivative(F[1], u, ufl.TrialFunction(V_u))
+M[1][1] = ufl.derivative(F[1], alpha, ufl.TrialFunction(V_alpha))
+
+# Block A
+A = [[None] * 2] * 2
+for i in range(2):
+    for j in range(2):
+        A[i][j] = ufl.replace(M[i][j], {lmbda: ufl.zero()})
+
+# Block B
+B = [[None] * 2] * 2
+for i in range(2):
+    for j in range(2):
+        B[i][j] = ufl.algorithms.expand_derivatives(ufl.diff(M[i][j], lmbda))
+        B[i][j] = ufl.replace(B[i][j], {lmbda: ufl.zero()})
+
+        if B[i][j].empty():
+            B[i][j] = None
+
+A_form = fem.form(A)
+B_form = fem.form(B)
+
+A = fem.petsc.create_matrix_block(A_form)
+B = fem.petsc.create_matrix_block(B_form)
 
 for i_t, t in enumerate(loads):
     ux_right.value = t * t_c
@@ -284,4 +314,21 @@ for i_t, t in enumerate(loads):
     alpha_lb.x.scatter_forward()
     alternate_minimization(u, alpha)
 
-    # TODO: Check stability using reduced system (SLEPc).
+    # Assemble operators on entire set.
+    A.zeroEntries()
+    fem.petsc.assemble_matrix_block(A, A_form)
+    A.assemble()
+    
+    B.zeroEntries()
+    fem.petsc.assemble_matrix_block(B, B_form)
+    B.assemble()
+    
+    # Get inactive sets.
+    u_inactive_set = np.arange(0, V_u.dofmap.index_map.size_local, dtype=np.int32)
+    # Get inactive sets.
+    alpha_inactive_set = solver_alpha_snes.getVIInactiveSet()
+
+    restriction = Restriction([V_u, V_alpha], [u_inactive_set, alpha_inactive_set])
+
+    # Check stability using reduced system using SLEPc.
+     
