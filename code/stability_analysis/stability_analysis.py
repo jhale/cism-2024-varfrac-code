@@ -11,9 +11,9 @@
 import sys
 
 from petsc4py import PETSc
-from slepc4py import SLEPc
 
 import numpy as np
+from dolfiny.restriction import Restriction
 
 import basix
 import basix.ufl
@@ -22,7 +22,6 @@ import dolfinx.fem as fem
 import dolfinx.fem.petsc
 import dolfinx.la as la
 import dolfinx.plot as plot
-from dolfiny.restriction import Restriction
 import ufl
 
 sys.path.append("../utils/")
@@ -314,15 +313,16 @@ for i_t, t in enumerate(loads):
     alpha_lb.x.scatter_forward()
     alternate_minimization(u, alpha)
 
-    # Assemble operators on entire set.
+    # Assemble operators on union of active (damaged) and inactive (undamaged)
+    # sets.
     A.zeroEntries()
-    fem.petsc.assemble_matrix_block(A, A_form)
+    fem.petsc.assemble_matrix_block(A, A_form, bcs=bcs_all)
     A.assemble()
-    
+
     B.zeroEntries()
-    fem.petsc.assemble_matrix_block(B, B_form)
+    fem.petsc.assemble_matrix_block(B, B_form, bcs=bcs_all)
     B.assemble()
-    
+
     # Get inactive sets.
     u_inactive_set = np.arange(0, V_u.dofmap.index_map.size_local, dtype=np.int32)
     # Get inactive sets.
@@ -331,4 +331,3 @@ for i_t, t in enumerate(loads):
     restriction = Restriction([V_u, V_alpha], [u_inactive_set, alpha_inactive_set])
 
     # Check stability using reduced system using SLEPc.
-     
