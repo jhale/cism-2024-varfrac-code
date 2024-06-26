@@ -14,6 +14,7 @@ from petsc4py import PETSc
 
 import numpy as np
 from dolfiny.restriction import Restriction
+from slepc4py import SLEPc
 
 import basix
 import basix.ufl
@@ -287,6 +288,13 @@ B_form = fem.form(B)
 A = fem.petsc.create_matrix_block(A_form)
 B = fem.petsc.create_matrix_block(B_form)
 
+# SLEPc solver
+stability_solver = SLEPc.EPS().create()
+stability_solver.setType("krylovschur")
+stability_solver.setTarget(-0.1)
+# TODO: Set up solver used for shift and invert. 
+# TODO: Set up to get smallest part of spectrum. 
+
 for i_t, t in enumerate(loads):
     ux_right.value = t * t_c
 
@@ -317,3 +325,8 @@ for i_t, t in enumerate(loads):
     # Create restricted operators.
     A_restricted = restriction.restrict_matrix(A)
     B_restricted = restriction.restrict_matrix(B)
+
+    stability_solver.setOperators(A_restricted, B_restricted)
+    stability_solver.solve()
+
+    stability_solver.view()
