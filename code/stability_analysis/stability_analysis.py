@@ -263,39 +263,25 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 
 
 # Define the fully coupled block problem for stability analysis
-element_lmbda = basix.ufl.element("Lagrange", msh.basix_cell(), degree=0, discontinuous=True)
-V_lmbda = fem.functionspace(msh, element_lmbda)
-lmbda = fem.Function(V_lmbda)
-
 # Block residual
-F = [None] * 2
-F[0] = ufl.derivative(energy + lmbda * ufl.inner(u, u) * dx, u, ufl.TestFunction(V_u))
+F = [None for i in range(2)]
+F[0] = ufl.derivative(energy, u, ufl.TestFunction(V_u))
 F[1] = ufl.derivative(
-    energy + lmbda * ufl.inner(alpha, alpha) * dx, alpha, ufl.TestFunction(V_alpha)
+    energy, alpha, ufl.TestFunction(V_alpha)
 )
 
-# Block M
-M = [[None] * 2] * 2
-M[0][0] = ufl.derivative(F[0], u, ufl.TrialFunction(V_u))
-M[0][1] = ufl.derivative(F[0], alpha, ufl.TrialFunction(V_alpha))
-M[1][0] = ufl.derivative(F[1], u, ufl.TrialFunction(V_u))
-M[1][1] = ufl.derivative(F[1], alpha, ufl.TrialFunction(V_alpha))
-
-# Block A
-A = [[None] * 2] * 2
-for i in range(2):
-    for j in range(2):
-        A[i][j] = ufl.replace(M[i][j], {lmbda: ufl.zero()})
+# Block A 
+A = [[None for i in range(2)] for j in range(2)]
+A[0][0] = ufl.derivative(F[0], u, ufl.TrialFunction(V_u))
+A[0][1] = ufl.derivative(F[0], alpha, ufl.TrialFunction(V_alpha))
+A[1][0] = ufl.derivative(F[1], u, ufl.TrialFunction(V_u))
+A[1][1] = ufl.derivative(F[1], alpha, ufl.TrialFunction(V_alpha))
 
 # Block B
-B = [[None] * 2] * 2
-for i in range(2):
-    for j in range(2):
-        B[i][j] = ufl.algorithms.expand_derivatives(ufl.diff(M[i][j], lmbda))
-        B[i][j] = ufl.replace(B[i][j], {lmbda: ufl.zero()})
-
-        if B[i][j].empty():
-            B[i][j] = None
+# TODO: Should be done from associated energy (inertia/mass).
+B = [[None for i in range(2)] for j in range(2)]
+B[0][0] = ufl.inner(ufl.TrialFunction(V_u), ufl.TestFunction(V_u))*dx 
+B[1][1] = ufl.inner(ufl.TrialFunction(V_alpha), ufl.TestFunction(V_alpha))*dx
 
 A_form = fem.form(A)
 B_form = fem.form(B)
@@ -326,7 +312,7 @@ for i_t, t in enumerate(loads):
     # Get inactive sets.
     u_inactive_set = np.arange(0, V_u.dofmap.index_map.size_local, dtype=np.int32)
     # Get inactive sets.
-    alpha_inactive_set = solver_alpha_snes.getVIInactiveSet()
+    alpha_inactive_set = solver_alpha_snes.getVIInactiveSet().array
 
     restriction = Restriction([V_u, V_alpha], [u_inactive_set, alpha_inactive_set])
 
