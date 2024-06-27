@@ -305,9 +305,10 @@ stability_solver.setOptionsPrefix("stability_")
 
 opts["stability_eps_type"] = "krylovschur"
 opts["stability_eps_target"] = "smallest_real"
-opts["stability_eps_target"] = -0.1
+opts["stability_eps_target"] = 1e-5
 opts["stability_st_type"] = "sinvert"
-opts["stability_eps_tol"] = 1E-7
+opts["stability_st_shift"] = -0.1
+opts["stability_eps_tol"] = 1e-7
 opts["stability_st_ksp_type"] = "preonly"
 opts["stability_st_pc_type"] = "cholesky"
 opts["stability_st_pc_factor_mat_solver_type"] = "mumps"
@@ -348,4 +349,11 @@ for i_t, t in enumerate(loads):
     stability_solver.setOperators(A_restricted, B_restricted)
     stability_solver.solve()
 
-    stability_solver.view()
+    # stability_solver.view()
+
+    num_converged = stability_solver.getConverged()
+
+    print(num_converged)
+
+    for i in range(0, num_converged):
+        print(stability_solver.getEigenvalue(i))
