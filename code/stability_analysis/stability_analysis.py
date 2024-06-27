@@ -206,13 +206,18 @@ J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
 
 # Setup linear elasticity problem and solve
 solver_u_snes = PETSc.SNES().create()
-solver_u_snes.setType("ksponly")
+solver_u_snes.setOptionsPrefix("elasticity_")
 solver_u_snes.setFunction(elastic_problem.F, b_u)
 solver_u_snes.setJacobian(elastic_problem.J, J_u)
-solver_u_snes.setTolerances(rtol=1.0e-8, max_it=50)
-solver_u_snes.getKSP().setType("preonly")
-solver_u_snes.getKSP().setTolerances(rtol=1.0e-8)
-solver_u_snes.getKSP().getPC().setType("lu")
+
+opts = PETSc.Options()
+opts["elasticity_snes_type"] = "ksponly"
+opts["elasticity_ksp_type"] = "preonly"
+opts["elasticity_pc_type"] = "lu"
+opts["elasticity_pc_factor_mat_solver_type"] = "mumps"
+opts["elasticity_snes_rtol"] = 1.0e-8
+opts["elasticity_snes_atol"] = 1.0e-8
+solver_u_snes.setFromOptions()
 
 # Setup damage problem.
 E_alpha = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
@@ -225,13 +230,20 @@ J_alpha = fem.petsc.create_matrix(damage_problem.a)
 
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = PETSc.SNES().create()
-solver_alpha_snes.setType("vinewtonrsls")
+solver_alpha_snes.setOptionsPrefix("damage_")
 solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
 solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
-solver_alpha_snes.setTolerances(rtol=1.0e-8, max_it=50)
-solver_alpha_snes.getKSP().setType("preonly")
-solver_alpha_snes.getKSP().getPC().setType("lu")
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
+
+opts["damage_snes_type"] = "vinewtonrsls"
+opts["damage_ksp_type"] = "preonly"
+opts["damage_pc_type"] = "lu"
+opts["damage_pc_factor_mat_solver_type"] = "mumps"
+opts["damage_snes_rtol"] = 1.0e-8
+opts["damage_snes_atol"] = 1.0e-8
+opts["damage_snes_max_it"] = 50
+
+solver_alpha_snes.setFromOptions()
 
 
 def simple_monitor(u, alpha, iteration, error_L2):
@@ -277,7 +289,6 @@ A[1][0] = ufl.derivative(F[1], u, ufl.TrialFunction(V_u))
 A[1][1] = ufl.derivative(F[1], alpha, ufl.TrialFunction(V_alpha))
 
 # Block B
-# TODO: Should be done from associated energy (inertia/mass).
 B = [[None for i in range(2)] for j in range(2)]
 B[0][0] = ufl.inner(ufl.TrialFunction(V_u), ufl.TestFunction(V_u)) * dx
 B[1][1] = ufl.inner(ufl.TrialFunction(V_alpha), ufl.TestFunction(V_alpha)) * dx
@@ -290,10 +301,18 @@ B = fem.petsc.create_matrix_block(B_form)
 
 # SLEPc solver
 stability_solver = SLEPc.EPS().create()
-stability_solver.setType("krylovschur")
-stability_solver.setTarget(-0.1)
-# TODO: Set up solver used for shift and invert. 
-# TODO: Set up to get smallest part of spectrum. 
+stability_solver.setOptionsPrefix("stability_")
+
+opts["stability_eps_type"] = "krylovschur"
+opts["stability_eps_target"] = "smallest_real"
+opts["stability_eps_target"] = -0.1
+opts["stability_st_type"] = "sinvert"
+opts["stability_eps_tol"] = 1E-7
+opts["stability_st_ksp_type"] = "preonly"
+opts["stability_st_pc_type"] = "cholesky"
+opts["stability_st_pc_factor_mat_solver_type"] = "mumps"
+opts["stability_st_mat_mumps_icntl_24"] = 1
+stability_solver.setFromOptions()
 
 for i_t, t in enumerate(loads):
     ux_right.value = t * t_c
