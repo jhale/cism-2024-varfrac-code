@@ -71,7 +71,7 @@
 #
 #    pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
 #
-# + 
+# +
 import sys
 
 from mpi4py import MPI
@@ -288,9 +288,7 @@ def isotropic_energy_density(eps, alpha):
 
 
 def elastic_energy_density(eps, alpha):
-    return deviatoric_energy_density(eps, alpha) + isotropic_energy_density(
-        eps, alpha
-    )
+    return deviatoric_energy_density(eps, alpha) + isotropic_energy_density(eps, alpha)
 
 
 def total_energy(u, alpha):
