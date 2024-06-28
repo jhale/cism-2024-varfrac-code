@@ -71,7 +71,7 @@
 #
 #    pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
 #
-# +
+# + 
 import sys
 
 from mpi4py import MPI
@@ -126,9 +126,8 @@ grid = pyvista.UnstructuredGrid(*vtk_mesh)
 plotter = pyvista.Plotter()
 plotter.add_mesh(grid, show_edges=True)
 plotter.camera_position = "xy"
-# if not pyvista.OFF_SCREEN:
-#    plotter.show()
-# -
+if not pyvista.OFF_SCREEN:
+    plotter.show()
 
 # ## Setting the stage
 #
@@ -163,8 +162,7 @@ ds = ufl.Measure("ds", domain=msh)
 # boundary. An alternative approach is to directly use the facet tags `fm`
 # returned directly by the mesh generator. This can be helpful when dealing
 # with applying boundary conditions on meshes with complex curved surfaces.
-# -
-
+# +
 dofs_ux_left = dolfinx.fem.locate_dofs_topological(
     V_u.sub(0), msh.topology.dim - 1, ft.find(fm["left"])
 )
