@@ -233,9 +233,9 @@ lmbda_reg = ell / ell_ch  # Regularisation length
 # The strain energy density of the S-LS constitutive model can be written as
 #
 # $$
-# \mathcal{E}(\varepsilon, \alpha) = \frac{\kappa(\alpha)}{2} [\mathrm{tr}(\varepsilon)]^2 +
-# \mu(\alpha) | \mathrm{dev}(\varpepsilon) |^2 + w_1(w(\alpha) + \ell^2 | \nabla
-# \alpha | ^ 2),
+# \mathcal{E}(u, \alpha) = \frac{\kappa(\alpha)}{2}
+# [\mathrm{tr}(\varepsilon)]^2 + \mu(\alpha) | \mathrm{dev}(\varepsilon) |^2 +
+# w_1(w(\alpha) + \ell^2 | \nabla \alpha | ^ 2),
 # $$
 #
 # where $\varepsilon$ is the usual small strain tensor as a function of the
