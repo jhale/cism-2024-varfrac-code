@@ -222,12 +222,12 @@ gamma = gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
 t_peak = sigma_peak / E_0  # Peak traction
 t_star = 2 * G_c / (sigma_peak * Lx)  # Final failure traction for homogeneous solution
 t_f = 2 * G_c / (sigma_peak * np.pi * ell)  # Final failure traction for localised solution
-ell_ch = gamma * np.pi * ell # Cohesive zone length scale.
+ell_ch = gamma * np.pi * ell  # Cohesive zone length scale.
 
 # Dimensionless parameters. The model response depends on these two parameters
 # only.
-lmbda_str = Lx/ell_ch # Structural length
-lmbda_reg = ell/ell_ch # Regularisation length
+lmbda_str = Lx / ell_ch  # Structural length
+lmbda_reg = ell / ell_ch  # Regularisation length
 
 # + [markdown]
 # The strain energy density of the S-LS constitutive model can be written as
@@ -256,7 +256,7 @@ lmbda_reg = ell/ell_ch # Regularisation length
 # $$
 # \mu(\alpha) := \frac{1 - w(\alpha)}{1 + (\gamma_{\mu} - 1) w (\alpha)} \mu_0.
 # $$
-# 
+#
 # Note that in this example we set $\gamma_\kappa = \gamma_\mu$.
 # +
 
@@ -437,7 +437,7 @@ pre_damage_num_steps = 10  # Number of load steps before damage
 post_damage_num_steps = 50  # Number of load steps after damage
 
 # Extend to 2*t_peak
-loads = np.linspace(0.0, 2*t_peak, pre_damage_num_steps)
+loads = np.linspace(0.0, 2 * t_peak, pre_damage_num_steps)
 
 for i_t, load in enumerate(loads):
     ux_right.value = load
