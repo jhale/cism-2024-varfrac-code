@@ -410,7 +410,52 @@ solver_alpha_snes.getKSP().getPC().setType("lu")
 # We set the bound
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 
+# + [markdown]
+# ### Solver description
+#
+# A full description of the reduced space active set Newton solver
+# (`vinewtonrsls`) can be found in:
+#
+# - Benson, S. J., Munson, T. S. (2004). Flexible complimentarity solvers for
+#   large-scale applications. Optimization Methods and Software.
+#   https://doi.org/10.1080/10556780500065382
+#
+# We recall the main details here and allow for some mathematical
+# simplifications.
+#
+# Consider the residual function $F : \mathbb{R}^n \to \mathbb{R}^n$ and a
+# given a fixed point $x^k \in \mathbb{R}^n$. Concretely $F(x^k)$ corresponds
+# to the damage residual vector assembled from the form `damage_problem.F` and
+# $x^k$ is the current damage `alpha`. We now define the active $\mathcal{A}$
+# and inactive $\mathcal{I}$ subsets:
+# $$
+# \mathcal{A}(x) := \left\lbrace i \in \left\lbrace 1, \ldots, n \right\rbrace
+# \; | \; x_i = 0 \; \mathrm{and} \; F_i(x) > 0 \right\rbrace
+# $$
+# $$
+# \mathcal{I}(x) := \left\lbrace i \in \left\lbrace 1, \ldots, n \right\rbrace
+# \; | \; x_i > 0 \; \mathrm{or} \; F_i(x) <= 0 \right\rbrace
+# $$
+# For a vector $F(x^k)$ or matrix $J(x^k)$ we write its restriction to a set
+# $\mathcal{I}$ as $d_{\mathcal{I}}$ and $J_{\mathcal{I},\mathcal{I}}$,
+# respectively, where the explicit dependence of $\mathcal{I}$ on $x$ has been
+# dropped. We define the Newton increment for the current step as $d = 0$, and
+# set $d_{\mathcal{A}} = 0$. We then solve the reduced space Newton system for
+# the reduced Newton direction on the inactive set $d_{\mathcal{I}}$:
+# $$
+# [ \nabla F(x^k) ]_{\mathcal{I},\mathcal{I}} d_{\mathcal{I}}^k = -F_{\mathcal{I}}(x^k)
+# $$
+# Note that by construction the calculated direction is zero on the active set.
+# We then set:
+# $$
+# x^{k+1} = \pi[x^k + d^k]
+# $$
+# where $\pi$ is the projection onto the variable bounds. This algorithm can be
+# augmented with a line search procedure to compute how far along the direction
+# $d^k$ we should move.
+#
 # Let us now test the damage solver
+# +
 solver_alpha_snes.solve(None, alpha.vector)
 plot_damage_state(u, alpha, load=load)
 
@@ -454,7 +499,7 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_mon
 
         # check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
-        error_L2 = np.sqrt(fem.assemble_scalar(fem.form(L2_error)))
+        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), OP=MPI.SUM))
         alpha.vector.copy(alpha_old.vector)
 
         if monitor is not None:
@@ -467,8 +512,9 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_mon
 
 
 # + [markdown]
-# We reset the damage field to an undamaged state.
+# We reset the displacement and damage fields.
 # +
+u.x.array[:] = 0.0
 alpha.x.array[:] = 0.0
 alternate_minimization(u, alpha)
 plot_damage_state(u, alpha, load=load)
