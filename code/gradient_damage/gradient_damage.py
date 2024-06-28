@@ -499,7 +499,7 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_mon
 
         # check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
-        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), OP=MPI.SUM))
+        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), op=MPI.SUM))
         alpha.vector.copy(alpha_old.vector)
 
         if monitor is not None:
