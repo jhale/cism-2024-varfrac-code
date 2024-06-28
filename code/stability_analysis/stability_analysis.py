@@ -12,6 +12,7 @@
 #     name: python3
 # ---
 
+# + [markdown]
 # # Stability analysis of a selective linear-softening gradient damage model
 #
 # *Authors:*
@@ -21,6 +22,10 @@
 # In this notebook we implement a stability analysis on a selective
 # linear-softening (S-LS) gradient damage model. For a full overview of the
 # theoretical aspects we refer the reader to:
+#
+# - Stability and crack nucleation in variational phase-field models of
+# fracture: effects of length-scales and stress multi-axiality. Zolesi and
+# Maurini 2024. Preprint. https://hal.sorbonne-universite.fr/hal-04552309
 #
 # It is well understood that the classical phase-field model of brittle
 # fracture, e.g. AT1 or AT2 type models, converge asymptotically to the
@@ -60,6 +65,7 @@
 #
 # Here we use will use the restriction functionality of
 # [dolfiny](https://github.com/michalhabera/dolfiny).
+#
 # You can install dolfiny in your container by opening a shell
 # and running:
 #
@@ -89,35 +95,7 @@ sys.path.append("../utils/")
 from meshes import generate_bar_mesh
 from petsc_problems import SNESProblem
 
-Lx = 1.0  # Size of domain in x-direction
-Ly = 0.1  # Size of domain in y-direction
-
-# Define free parameters. Table 1 Zelosi and Maurini, first row.
-sigma_c = 1.0  # Critical strength
-G_c = 1.0  # Fracture toughness.
-E_0 = 1.0  # Young's modulus.
-ell = 0.05  # Regularisation length scale.
-
-# Additional parameters
-nu_0 = 0.3  # Poisson's ratio.
-
-# Computational parameters
-pre_damage_num_steps = 10  # Number of load steps before damage
-post_damage_num_steps = 50  # Number of load steps after damage
-lc = ell / 5.0  # Characteristic mesh size
-
-# Derived quantities
-mu_0 = E_0 / (2 * (1 + nu_0))
-kappa_0 = E_0 / (2 * (1 - nu_0))
-w_1 = G_c / (np.pi * ell)
-gamma_traction = (2 * w_1 * E_0) / (sigma_c**2)
-t_c = sigma_c / E_0
-t_f = gamma_traction * t_c
-t_star = 2 * np.pi * ell / Lx * w_1 / sigma_c
-
-loads = np.linspace(0.0, t_c, pre_damage_num_steps)
-# -
-
+# + [markdown]
 # ## Mesh
 #
 # We define the mesh using a provided function which uses gmsh internally. This
@@ -126,8 +104,17 @@ loads = np.linspace(0.0, t_c, pre_damage_num_steps)
 # parts of the boundary. The dictionaries `mm` and `fm` contain a map between
 # easy-to-remember strings and numbers in the tags `mt` and `ft`, respectively.
 # +
+Lx = 1.0  # Size of domain in x-direction
+Ly = 0.1  # Size of domain in y-direction
+
+# Define free parameters for SL-S model. Table 1 Zelosi and Maurini, third row.
+E_0 = 1.0  # Young's modulus.
+G_c = 1.0  # Fracture toughness.
+sigma_peak = 1.0  # Critical strength
+ell = 0.05  # Regularisation length scale.
+
 comm = MPI.COMM_WORLD
-msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=lc)
+msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell/5.0)
 
 import pyvista  # noqa: E402
 
@@ -150,7 +137,6 @@ plotter.camera_position = "xy"
 #
 # We use (vector-valued) linear Lagrange finite elements on quadrilaterals for
 # displacement and damage.
-#
 # +
 element_u = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(msh.geometry.dim,))
 V_u = fem.functionspace(msh, element_u)
@@ -167,8 +153,8 @@ alpha_ub.x.array[:] = 1.0
 
 dx = ufl.Measure("dx", domain=msh)
 ds = ufl.Measure("ds", domain=msh)
-# -
 
+# + [markdown]
 # ### Boundary conditions
 # We impose Dirichlet boundary conditions on the displacement and the damage
 # field on the appropriate parts of the boundary.
@@ -177,15 +163,7 @@ ds = ufl.Measure("ds", domain=msh)
 # boundary. An alternative approach is to directly use the facet tags `fm`
 # returned directly by the mesh generator. This can be helpful when dealing
 # with applying boundary conditions on meshes with complex curved surfaces.
-# +
-
-dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
-    V_alpha, msh.topology.dim - 1, ft.find(fm["left"])
-)
-
-dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
-    V_alpha, msh.topology.dim - 1, ft.find(fm["right"])
-)
+# -
 
 dofs_ux_left = dolfinx.fem.locate_dofs_topological(
     V_u.sub(0), msh.topology.dim - 1, ft.find(fm["left"])
@@ -199,12 +177,21 @@ dofs_uy_left = dolfinx.fem.locate_dofs_topological(
     V_u.sub(1), msh.topology.dim - 1, ft.find(fm["left"])
 )
 
+
 ux_right = fem.Constant(msh, 0.0)
 bcs_u = [
     fem.dirichletbc(fem.Constant(msh, 0.0), dofs_ux_left, V_u.sub(0)),
     fem.dirichletbc(fem.Constant(msh, 0.0), dofs_uy_left, V_u.sub(1)),
     fem.dirichletbc(ux_right, dofs_ux_right, V_u.sub(0)),
 ]
+
+dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
+    V_alpha, msh.topology.dim - 1, ft.find(fm["left"])
+)
+
+dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
+    V_alpha, msh.topology.dim - 1, ft.find(fm["right"])
+)
 
 bcs_alpha = [
     fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_left, V_alpha),
@@ -226,6 +213,24 @@ alpha_ub.x.scatter_forward()
 #
 # +
 
+# Additional parameters
+nu_0 = 0.3  # Poisson's ratio.
+
+# Computational parameters
+pre_damage_num_steps = 10  # Number of load steps before damage
+post_damage_num_steps = 50  # Number of load steps after damage
+
+# Derived quantities from four free parameters
+mu_0 = E_0 / (2.0 * (1.0 + nu_0)) # First Lame parameter of undamaged material
+kappa_0 = E_0 / (2.0 * (1 - nu_0)) # Bulk modulus of undamaged material
+w_1 = G_c / (np.pi * ell) # Energy required to damage unit volume in a homogeneous process 
+# Softening parameters for spherical and deviatoric contributions
+gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
+t_peak = sigma_peak / E_0 # Peak traction
+t_star = 2 * G_c / (sigma_peak * Lx) # Final failure traction for homogeneous solution 
+t_f = 2 * G_c / (sigma_peak * np.pi * ell) # Final failure traction for localised solution
+
+loads = np.linspace(0.0, t_c, pre_damage_num_steps)
 
 def eps(u):
     return ufl.sym(ufl.grad(u))
@@ -233,10 +238,6 @@ def eps(u):
 
 def w(alpha):
     return 1.0 - (1.0 - alpha) ** 2
-
-
-def a(alpha, gamma=gamma_traction, kres=1.0e-8):
-    return (1.0 - w(alpha)) / (1.0 + w(alpha) * (gamma - 1.0)) + kres
 
 
 def mu(alpha, gamma=gamma_traction):
