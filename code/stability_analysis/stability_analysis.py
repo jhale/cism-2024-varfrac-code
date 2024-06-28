@@ -13,7 +13,7 @@
 # ---
 
 # + [markdown]
-# # Stability analysis of a selective linear-softening gradient damage model
+# # Stability analysis of a softening gradient damage model
 #
 # *Authors:*
 # - Jack S. Hale (University of Luxembourg)
