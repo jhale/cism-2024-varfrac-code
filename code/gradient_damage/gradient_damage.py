@@ -150,8 +150,6 @@ V_alpha = fem.functionspace(msh, element_alpha)
 u = fem.Function(V_u, name="displacement")
 alpha = fem.Function(V_alpha, name="damage")
 
-state = {"u": u, "alpha": alpha}
-
 # Lower bound for the damage field
 alpha_lb = fem.Function(V_alpha, name="lower bound")
 alpha_lb.x.array[:] = 0.0
@@ -445,16 +443,20 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 # dropped. We define the Newton increment for the current step as $d = 0$, and
 # set $d_{\mathcal{A}} = 0$. We then solve the reduced space Newton system for
 # the reduced Newton direction on the inactive set $d_{\mathcal{I}}$:
+#
 # $$
 # [ \nabla F(x^k) ]_{\mathcal{I},\mathcal{I}} d_{\mathcal{I}}^k = -F_{\mathcal{I}}(x^k)
 # $$
+#
 # Note that by construction the calculated direction is zero on the active set.
 # We then set:
+#
 # $$
 # x^{k+1} = \pi[x^k + d^k]
 # $$
+#
 # where $\pi$ is the projection onto the variable bounds. This algorithm can be
-# augmented with a line search procedure to compute how far along the direction
+# enhanced with a line search procedure to compute how far along the direction
 # $d^k$ we should move.
 #
 # Let us now test the damage solver
@@ -470,8 +472,8 @@ plot_damage_state(u, alpha, load=load)
 # $u$ at fixed $\alpha$ and then for $\alpha$ at fixed $u$ until convergence is
 # achieved.
 # +
-with alpha.vector.localForm() as alpha_local:
-    alpha_local.set(0)
+alpha.x.array[:] = 0.0
+u.x.array[:] = 0.0
 
 for i in range(10):
     print(f"Iteration {i}")
@@ -489,11 +491,11 @@ def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-def alternate_minimization(u, alpha, atol=1e-8, max_iter=100, monitor=simple_monitor):
+def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simple_monitor):
     alpha_old = fem.Function(alpha.function_space)
     alpha_old.x.array[:] = alpha.x.array
 
-    for iteration in range(max_iter):
+    for iteration in range(max_iterations):
         # Solve displacement
         solver_u_snes.solve(None, u.vector)
 
@@ -526,53 +528,43 @@ plot_damage_state(u, alpha, load=load)
 # + [markdown]
 # ## Time-stepping: solving a quasi-static problem
 # +
-def postprocessing(u, alpha, iteration, error_L2):
-    # Save number of iterations for the time step
-    iterations[i_t] = np.array([t, i_t])
-
-    # Calculate the energies
-    elastic_energy_value = comm.allreduce(
-        dolfinx.fem.assemble_scalar(dolfinx.fem.form(elastic_energy)),
-        op=MPI.SUM,
-    )
-    surface_energy_value = comm.allreduce(
-        dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)),
-        op=MPI.SUM,
-    )
-    energies[i_t] = np.array(
-        [t, elastic_energy_value, surface_energy_value, elastic_energy_value + surface_energy_value]
-    )
-
-    simple_monitor(u, alpha, iteration, error_L2)
-
-
-load0 = np.float64(eps_c) * L  # reference value for the loading (imposed displacement)
+load0 = eps_c * L  # reference value for the loading (imposed displacement)
 loads = load0 * np.linspace(0, 1.5, 20)
 
-energies = np.zeros((len(loads), 4))
-iterations = np.zeros((len(loads), 2))
+# Array to store results
+energies = np.zeros((loads.shape[0], 3))
 
-with alpha.vector.localForm() as alpha_local:
-    alpha_local.set(0)
 
 for i_t, t in enumerate(loads):
     u_D.value = t
+    energies[i_t, 0] = t
 
     # Update the lower bound to ensure irreversibility of damage field.
-    alpha.vector.copy(alpha_lb.vector)
+    alpha_lb.x.array[:] = alpha_lb.x.array
     print(f"-- Solving for t = {t:3.2f} --")
     alternate_minimization(u, alpha)
     plot_damage_state(u, alpha)
 
-(p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2)
-(p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2)
-(p3,) = plt.plot(energies[:, 0], energies[:, 3], "ko", linewidth=2)
-plt.legend([p1, p2, p3], ["Elastic", "Dissipated", "Total"])
-plt.xlabel("Displacement")
-plt.ylabel("Energies")
+    # Calculate the energies
+    energies[i_t, 1] = comm.allreduce(
+        dolfinx.fem.assemble_scalar(dolfinx.fem.form(elastic_energy)),
+        op=MPI.SUM,
+    )
+    energies[i_t, 2] = comm.allreduce(
+        dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)),
+        op=MPI.SUM,
+    )
+
+(p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
+(p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
+(p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
+plt.legend()
 
 plt.axvline(x=eps_c * L, color="grey", linestyle="--", linewidth=2)
 plt.axhline(y=H, color="grey", linestyle="--", linewidth=2)
+
+plt.xlabel("Displacement")
+plt.ylabel("Energy")
 
 plt.savefig("output/energies.png")
 
