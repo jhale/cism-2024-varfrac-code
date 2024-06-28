@@ -110,7 +110,7 @@ Ly = 0.1  # Size of domain in y-direction
 # Define free parameters for SL-S model. Table 1 Zelosi and Maurini, third row.
 E_0 = 1.0  # Young's modulus.
 G_c = 1.0  # Fracture toughness.
-sigma_peak = 1.0  # Critical strength
+sigma_peak = 1.0 # Peak strength.
 ell = 0.05  # Regularisation length scale.
 
 comm = MPI.COMM_WORLD
@@ -177,7 +177,6 @@ dofs_uy_left = dolfinx.fem.locate_dofs_topological(
     V_u.sub(1), msh.topology.dim - 1, ft.find(fm["left"])
 )
 
-
 ux_right = fem.Constant(msh, 0.0)
 bcs_u = [
     fem.dirichletbc(fem.Constant(msh, 0.0), dofs_ux_left, V_u.sub(0)),
@@ -203,14 +202,21 @@ bcs_all = bcs_u + bcs_alpha
 # Set boundary condition on damage upper bound
 fem.set_bc(alpha_ub.x.array, bcs_alpha)
 alpha_ub.x.scatter_forward()
-# -
 
+# + [markdown]
 # ## Variational formulation of the problem
 # ### Constitutive model
 #
 # We will now define the L-SL constitutive model and the related parameters. In
 # turn these will be used to define the energy.
-#
+# 
+# The strain energy density of the S-LS constitutive model can be written as
+# 
+# $$
+# \mathcal{E} = \frac{\kappa(\alpha)}{2} [\mathrm{tr}(\varepsilon)]^2 +
+# \mu(\alpha) | \mathrm{dev}(\varpepsilon) |^2 + w_1(w(\alpha) + \ell^2 | \grad
+# \alpha | ^ 2),
+# $$
 # +
 
 # Additional parameters
@@ -224,6 +230,7 @@ post_damage_num_steps = 50  # Number of load steps after damage
 mu_0 = E_0 / (2.0 * (1.0 + nu_0)) # First Lame parameter of undamaged material
 kappa_0 = E_0 / (2.0 * (1 - nu_0)) # Bulk modulus of undamaged material
 w_1 = G_c / (np.pi * ell) # Energy required to damage unit volume in a homogeneous process 
+
 # Softening parameters for spherical and deviatoric contributions
 gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
 t_peak = sigma_peak / E_0 # Peak traction
@@ -240,21 +247,18 @@ def w(alpha):
     return 1.0 - (1.0 - alpha) ** 2
 
 
-def mu(alpha, gamma=gamma_traction):
-    return dolfinx.fem.Constant(msh, mu_0) * a(alpha, gamma=fem.Constant(msh, gamma_traction))
+def mu(alpha):
+    return mu_0*(1.0 - w(alpha))/(1.0 + (gamma_mu - 1.0)*w(alpha))
 
 
-def kappa(alpha, gamma=gamma_traction):
-    return dolfinx.fem.Constant(msh, kappa_0) * a(
-        alpha, gamma=dolfinx.fem.Constant(msh, gamma_traction)
-    )
+def kappa(alpha):
+    return kappa_0*(1.0 - w(alpha))/(1.0 + (gamma_kappa - 1.0)*w(alpha))
 
 
 def damage_dissipation_density(alpha):
-    grad_alpha = ufl.grad(alpha)
     w_1_ = dolfinx.fem.Constant(msh, w_1)
-    ell_2 = dolfinx.fem.Constant(msh, ell * ell)
-    return w_1_ * (w(alpha) + ell_2 * ufl.inner(grad_alpha, grad_alpha))
+    ell_squared = dolfinx.fem.Constant(msh, ell * ell)
+    return w_1_ * (w(alpha) + ell_squared * ufl.inner(ufl.grad(alpha), ufl.grad(alpha)))
 
 
 def elastic_deviatoric_energy_density(eps, alpha):
