@@ -111,6 +111,33 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
     and press `Shift+Enter`. You should see output from the install process and
     no errors.
 
+## Getting up and running
+
+We recommend cloning the repository to run the notebooks using `git`.
+
+From a terminal inside Jupyterlab:
+
+    cd /shared
+    git clone https://github.com/jhale/cism-2024-varfrac-code.git
+    cd cism-2024-varfrac-code
+
+If `git` does not work you can also download the current version using:
+
+    cd /shared
+    curl -L -o main.tar.gz https://github.com/jhale/cism-2024-varfrac-code/archive/refs/heads/main.tar.gz
+    tar -xvf main.tar.gz 
+    cd cism-2024-varfrac-code-main
+
+Users using Google Colab should paste the following content into a cell:
+
+    from google.colab import drive
+    drive.mount('/content/drive')
+    %cd "/content/drive/MyDrive/Colab Notebooks" 
+    !git clone https://github.com/jhale/cism-2024-varfrac-code.git
+    %cd cism-2024-varfrac-code
+
+To open the notebook in Colab navigate using Google Drive to `Colab Notebooks/`
+and double click on it. 
 
 ## Authors
 
