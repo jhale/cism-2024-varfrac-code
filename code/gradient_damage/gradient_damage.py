@@ -428,14 +428,17 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 # to the damage residual vector assembled from the form `damage_problem.F` and
 # $x^k$ is the current damage `alpha`. We now define the active $\mathcal{A}$
 # and inactive $\mathcal{I}$ subsets:
+#
 # $$
 # \mathcal{A}(x) := \left\lbrace i \in \left\lbrace 1, \ldots, n \right\rbrace
 # \; | \; x_i = 0 \; \mathrm{and} \; F_i(x) > 0 \right\rbrace
 # $$
+#
 # $$
 # \mathcal{I}(x) := \left\lbrace i \in \left\lbrace 1, \ldots, n \right\rbrace
 # \; | \; x_i > 0 \; \mathrm{or} \; F_i(x) <= 0 \right\rbrace
 # $$
+#
 # For a vector $F(x^k)$ or matrix $J(x^k)$ we write its restriction to a set
 # $\mathcal{I}$ as $d_{\mathcal{I}}$ and $J_{\mathcal{I},\mathcal{I}}$,
 # respectively, where the explicit dependence of $\mathcal{I}$ on $x$ has been
