@@ -43,10 +43,12 @@
 #    condition. An equilibrium state $(u_t, \alpha_t)$ is said to be stable if the
 #    second derivative (Hessian) of the energy on the active set (all variables
 #    except those where the damage constraint is active) is positive:
+#
 #    $$
 #    \mathcal{E}^{''}(u, \alpha)(v, \beta) > 0, \quad \forall (v, \beta)
 #    \in \mathcal{C}_0 \times \mathcal{D}^{+}_0,
 #    $$
+#
 #    where $\mathcal{C}_0$ is the space of displacements with vanishing value
 #    on the boundary and $\mathcal{D}_0^+$ the damage field with vanishing value
 #    on the boundary and with damage $\alpha \ge 0$.
@@ -63,7 +65,7 @@
 # You can install dolfiny in your container by opening a shell
 # and running:
 #
-#    pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
+#     pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
 #
 # +
 import sys
@@ -100,15 +102,10 @@ from petsc_problems import SNESProblem
 # +
 Lx = 1.0  # Size of domain in x-direction
 Ly = 0.1  # Size of domain in y-direction
-
-# Define free parameters for SL-S model. Table 1 Zelosi and Maurini, third row.
-E_0 = 1.0  # Young's modulus.
-G_c = 1.0  # Fracture toughness.
-sigma_peak = 1.0  # Peak strength.
-ell = 0.05  # Regularisation length scale.
+ell = 0.5  # Regularisation length scale.
 
 comm = MPI.COMM_WORLD
-msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell / 5.0)
+msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell / 40.0)
 
 import pyvista  # noqa: E402
 
@@ -123,6 +120,7 @@ plotter.camera_position = "xy"
 if not pyvista.OFF_SCREEN:
     plotter.show()
 
+# + [markdown]
 # ## Setting the stage
 #
 # We setup the finite element space, the states, the bound constraints on the
@@ -197,23 +195,53 @@ alpha_ub.x.scatter_forward()
 
 # + [markdown]
 # ## Variational formulation of the problem
-# ### Constitutive model
+# ### Selective Linear-Softening model
 #
-# We will now define the L-SL constitutive model and the related parameters. In
-# turn these will be used to define the energy.
-#
+# We will now define the free S-LS parameters and some derived ones necessary
+# for the analysis. The descriptions are made inline with comments for
+# readability.
+# +
+
+# Additional parameters
+nu_0 = 0.3  # Poisson's ratio.
+
+# Define free parameters for SL-S model. Table 1 Zelosi and Maurini, third row.
+# TODO: Make this correspond to Figure 7b).
+E_0 = 1.0  # Young's modulus
+G_c = 1.0  # Fracture toughness
+sigma_peak = 1.0  # Peak strength
+ell = 0.5  # Regularisation length scale (repeated)
+
+# Derived quantities from four free parameters
+mu_0 = E_0 / (2.0 * (1.0 + nu_0))  # First Lame parameter of undamaged material
+kappa_0 = E_0 / (2.0 * (1 - nu_0))  # Bulk modulus of undamaged material
+w_1 = G_c / (np.pi * ell)  # Energy required to damage unit volume in a homogeneous process
+
+# Softening parameters for spherical and deviatoric contributions
+gamma = gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
+t_peak = sigma_peak / E_0  # Peak traction
+t_star = 2 * G_c / (sigma_peak * Lx)  # Final failure traction for homogeneous solution
+t_f = 2 * G_c / (sigma_peak * np.pi * ell)  # Final failure traction for localised solution
+ell_ch = gamma * np.pi * ell # Cohesive zone length scale.
+
+# Dimensionless parameters. The model response depends on these two parameters
+# only.
+lmbda_str = Lx/ell_ch # Structural length
+lmbda_reg = ell/ell_ch # Regularisation length
+
+# + [markdown]
 # The strain energy density of the S-LS constitutive model can be written as
 #
 # $$
 # \mathcal{E}(\varepsilon, \alpha) = \frac{\kappa(\alpha)}{2} [\mathrm{tr}(\varepsilon)]^2 +
-# \mu(\alpha) | \mathrm{dev}(\varpepsilon) |^2 + w_1(w(\alpha) + \ell^2 | \grad
+# \mu(\alpha) | \mathrm{dev}(\varpepsilon) |^2 + w_1(w(\alpha) + \ell^2 | \nabla
 # \alpha | ^ 2),
 # $$
 #
 # where $\varepsilon$ is the usual small strain tensor as a function of the
-# displacements $u$, $\mathrm{tr} is the trace operator, $\mathrm{dev}$ is the
-# deviatoric operator, and $alpha$ is the damage field. The dissipation
-# function is
+# displacements $u$, $\mathrm{tr}$ is the trace operator, $\mathrm{dev}$ takes
+# the deviatoric part of a tensor, and $alpha$ is the damage field. The
+# dissipation function is
 #
 # $$
 # w(\alpha) := 1 - (1 - \alpha^2),
@@ -228,27 +256,9 @@ alpha_ub.x.scatter_forward()
 # $$
 # \mu(\alpha) := \frac{1 - w(\alpha)}{1 + (\gamma_{\mu} - 1) w (\alpha)} \mu_0.
 # $$
+# 
+# Note that in this example we set $\gamma_\kappa = \gamma_\mu$.
 # +
-
-# Additional parameters
-nu_0 = 0.3  # Poisson's ratio.
-
-# Derived quantities from four free parameters
-mu_0 = E_0 / (2.0 * (1.0 + nu_0))  # First Lame parameter of undamaged material
-kappa_0 = E_0 / (2.0 * (1 - nu_0))  # Bulk modulus of undamaged material
-w_1 = G_c / (np.pi * ell)  # Energy required to damage unit volume in a homogeneous process
-
-# Softening parameters for spherical and deviatoric contributions
-gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
-t_peak = sigma_peak / E_0  # Peak traction
-t_star = 2 * G_c / (sigma_peak * Lx)  # Final failure traction for homogeneous solution
-t_f = 2 * G_c / (sigma_peak * np.pi * ell)  # Final failure traction for localised solution
-
-# Computational parameters
-pre_damage_num_steps = 10  # Number of load steps before damage
-post_damage_num_steps = 50  # Number of load steps after damage
-
-loads = np.linspace(0.0, t_peak, pre_damage_num_steps)
 
 
 def eps(u):
@@ -297,16 +307,11 @@ def sigma(eps, alpha):
 
 energy = total_energy(u, alpha)
 
-# Overall algorithm:
-# 1. Continuation in displacement (outer loop).
-# 2. Find minima using alternate minimisation.
-# 3. Assess stability of reduced fully coupled problem.
-# a. Assemble full Jacobian and residual.
-# b. Identify active set.
-# c. Remove degrees of freedom in the active set from the damage problem.
-# d. Find eigenvalues of reduced block problem (dolfiny?).
-
-# Move this all out to function.
+# + [markdown]
+# ## Numerical solution for equilibrium
+# We use the same alternate minimisation algorithm as in the previous notebook
+# to solve at each pseudo-time step. We do not repeat the details here.
+# +
 E_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
 elastic_problem = SNESProblem(E_u, u, bcs_u, J=E_u_u)
@@ -316,7 +321,6 @@ J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
 
 b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
 J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
-
 
 # Setup linear elasticity problem and solve
 solver_u_snes = PETSc.SNES().create()
@@ -377,7 +381,7 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 
         # check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
-        error_L2 = np.sqrt(fem.assemble_scalar(fem.form(L2_error)))
+        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), op=MPI.SUM))
         alpha.vector.copy(alpha_old.vector)
 
         if monitor is not None:
@@ -419,7 +423,7 @@ stability_solver.setOptionsPrefix("stability_")
 
 opts["stability_eps_type"] = "krylovschur"
 opts["stability_eps_target"] = "smallest_real"
-opts["stability_eps_target"] = 1e-5
+opts["stability_eps_target"] = -1e-5
 opts["stability_st_type"] = "sinvert"
 opts["stability_st_shift"] = -0.1
 opts["stability_eps_tol"] = 1e-7
@@ -429,10 +433,16 @@ opts["stability_st_pc_factor_mat_solver_type"] = "mumps"
 opts["stability_st_mat_mumps_icntl_24"] = 1
 stability_solver.setFromOptions()
 
-for i_t, t in enumerate(loads):
-    ux_right.value = t * t_peak
+pre_damage_num_steps = 10  # Number of load steps before damage
+post_damage_num_steps = 50  # Number of load steps after damage
 
-    print(f"-- Solving for t = {t:3.2f} --")
+# Extend to 2*t_peak
+loads = np.linspace(0.0, 2*t_peak, pre_damage_num_steps)
+
+for i_t, load in enumerate(loads):
+    ux_right.value = load
+
+    print(f"-- Solving for load = {load:3.2f} --")
 
     # Update the lower bound to ensure irreversibility of damage field.
     alpha.vector.copy(alpha_lb.vector)
@@ -441,6 +451,7 @@ for i_t, t in enumerate(loads):
 
     # Assemble operators on union of active (damaged) and inactive (undamaged)
     # sets.
+    # TODO: Remove boundary conditions from here.
     A.zeroEntries()
     fem.petsc.assemble_matrix_block(A, A_form, bcs=bcs_all)
     A.assemble()
@@ -449,6 +460,8 @@ for i_t, t in enumerate(loads):
     fem.petsc.assemble_matrix_block(B, B_form, bcs=bcs_all)
     B.assemble()
 
+    # TODO: Place boundary conditions into the active set (or, remove from
+    # inactive set).
     # Get inactive sets.
     u_inactive_set = np.arange(0, V_u.dofmap.index_map.size_local, dtype=np.int32)
     # Get inactive sets.
