@@ -434,7 +434,7 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 #
 # $$
 # \mathcal{I}(x) := \left\lbrace i \in \left\lbrace 1, \ldots, n \right\rbrace
-# \; | \; x_i > 0 \; \mathrm{or} \; F_i(x) <= 0 \right\rbrace
+# \; | \; x_i > 0 \; \mathrm{or} \; F_i(x) \le 0 \right\rbrace
 # $$
 #
 # For a vector $F(x^k)$ or matrix $J(x^k)$ we write its restriction to a set

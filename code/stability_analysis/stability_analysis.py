@@ -4,12 +4,71 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.16.2
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
 # ---
 
-# + [markdown]
-
+# # Stability analysis of a selective linear-softening gradient damage model
+#
+# *Authors:*
+# - Jack S. Hale (University of Luxembourg)
+# - Corrado Maurini (Sorbonne Université)
+#
+# In this notebook we implement a stability analysis on a selective
+# linear-softening (S-LS) gradient damage model. For a full overview of the
+# theoretical aspects we refer the reader to:
+#
+# It is well understood that the classical phase-field model of brittle
+# fracture, e.g. AT1 or AT2 type models, converge asymptotically to the
+# Griffith fracture model as the regularisation length goes to zero. This
+# result guarantees that *pre-existing* cracks propagate consistently with the
+# Griffith model.
+#
+# It is also widely observed that phase-field models allow for the nucleation of new
+# cracks from a completely undamaged state (i.e. without *pre-existing* cracks).
+#
+# The essence of the approach is as follows:
+#
+# 1. We define a S-LS gradient damage model via its energy functional
+#    $\mathcal{E}$ with a split of the elastic energy into deviatoric and
+#    spherical parts, with each associated with a selective softening parameter.
+# 2. Following the previous tutorial, we solve for the problem state $(u_t,
+#    \alpha_t)$ in pseudo-time $t$ using the alternate minimisation algorithm with a
+#    pointwise bound constraint to ensure irreversibility $\dot{\alpha}_t \ge 0$.
+# 3. To understand the stability of the equilibrium state we then solve an
+#    eigenvalue problem associated with the second-order state stability
+#    condition. An equilibrium state $(u_t, \alpha_t)$ is said to be stable if the
+#    second derivative (Hessian) of the energy on the active set (all variables
+#    except those where the damage constraint is active) is positive:
+#    $$
+#    \mathcal{E}^{''}(u, \alpha)(v, \beta) > 0, \quad \forall (v, \beta)
+#    \in \mathcal{C}_0 \times \mathcal{D}^{+}_0,
+#    $$
+#    where $\mathcal{C}_0$ is the space of displacements with vanishing value
+#    on the boundary and $\mathcal{D}_0^+$ the damage field with vanishing value
+#    on the boundary and with damage $\alpha \ge 0$.
+#
+# The numerical aspects of solving this problem will be discussed below.
+#
+# ## Preamble
+#
+# We begin by importing the required Python modules.
+#
+# Here we use will use the restriction functionality of
+# [dolfiny](https://github.com/michalhabera/dolfiny).
+# You can install dolfiny in your container by opening a shell
+# and running:
+#
+#    pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
+#
+# +
 import sys
 
+from mpi4py import MPI
 from petsc4py import PETSc
 
 import numpy as np
@@ -30,12 +89,11 @@ sys.path.append("../utils/")
 from meshes import generate_bar_mesh
 from petsc_problems import SNESProblem
 
-# By dimensional analysis
-sigma_c = 1.0  #
 Lx = 1.0  # Size of domain in x-direction
 Ly = 0.1  # Size of domain in y-direction
 
 # Define free parameters. Table 1 Zelosi and Maurini, first row.
+sigma_c = 1.0  # Critical strength
 G_c = 1.0  # Fracture toughness.
 E_0 = 1.0  # Young's modulus.
 ell = 0.05  # Regularisation length scale.
@@ -58,7 +116,18 @@ t_f = gamma_traction * t_c
 t_star = 2 * np.pi * ell / Lx * w_1 / sigma_c
 
 loads = np.linspace(0.0, t_c, pre_damage_num_steps)
-msh, mt, ft, mm, fm = generate_bar_mesh(Lx=Lx, Ly=Ly, lc=lc)
+# -
+
+# ## Mesh
+#
+# We define the mesh using a provided function which uses gmsh internally. This
+# function returns the mesh and so-called mesh tags `mt` and facet tags `ft`
+# that allow us to integrate over, or apply boundary conditions to, specific
+# parts of the boundary. The dictionaries `mm` and `fm` contain a map between
+# easy-to-remember strings and numbers in the tags `mt` and `ft`, respectively.
+# +
+comm = MPI.COMM_WORLD
+msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=lc)
 
 import pyvista  # noqa: E402
 
@@ -72,7 +141,17 @@ plotter.add_mesh(grid, show_edges=True)
 plotter.camera_position = "xy"
 # if not pyvista.OFF_SCREEN:
 #    plotter.show()
+# -
 
+# ## Setting the stage
+#
+# We setup the finite element space, the states, the bound constraints on the
+# states and UFL measures.
+#
+# We use (vector-valued) linear Lagrange finite elements on quadrilaterals for
+# displacement and damage.
+#
+# +
 element_u = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(msh.geometry.dim,))
 V_u = fem.functionspace(msh, element_u)
 
@@ -87,7 +166,18 @@ alpha_ub = dolfinx.fem.Function(V_alpha, name="upper bound")
 alpha_ub.x.array[:] = 1.0
 
 dx = ufl.Measure("dx", domain=msh)
-ds = ufl.Measure("ds", domain=msh, subdomain_data=ft)
+ds = ufl.Measure("ds", domain=msh)
+# -
+
+# ### Boundary conditions
+# We impose Dirichlet boundary conditions on the displacement and the damage
+# field on the appropriate parts of the boundary.
+#
+# In the previous example we use predicates to locate the facets on the
+# boundary. An alternative approach is to directly use the facet tags `fm`
+# returned directly by the mesh generator. This can be helpful when dealing
+# with applying boundary conditions on meshes with complex curved surfaces.
+# +
 
 dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
     V_alpha, msh.topology.dim - 1, ft.find(fm["left"])
@@ -126,6 +216,15 @@ bcs_all = bcs_u + bcs_alpha
 # Set boundary condition on damage upper bound
 fem.set_bc(alpha_ub.x.array, bcs_alpha)
 alpha_ub.x.scatter_forward()
+# -
+
+# ## Variational formulation of the problem
+# ### Constitutive model
+#
+# We will now define the L-SL constitutive model and the related parameters. In
+# turn these will be used to define the energy.
+#
+# +
 
 
 def eps(u):
@@ -348,8 +447,6 @@ for i_t, t in enumerate(loads):
 
     stability_solver.setOperators(A_restricted, B_restricted)
     stability_solver.solve()
-
-    # stability_solver.view()
 
     num_converged = stability_solver.getConverged()
 

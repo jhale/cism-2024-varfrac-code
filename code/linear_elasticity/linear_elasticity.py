@@ -72,7 +72,9 @@ Lcrack = 0.3
 lc = 0.05
 dist_min = 0.1
 dist_max = 0.3
-msh, mt, ft = generate_mesh_with_crack(
+comm = MPI.COMM_WORLD
+msh, mt, ft, _, _ = generate_mesh_with_crack(
+    comm,
     Lcrack=Lcrack,
     Ly=Ly,
     lc=lc,  # characteristic length of the mesh

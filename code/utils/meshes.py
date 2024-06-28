@@ -1,11 +1,10 @@
-from mpi4py import MPI
-
 import gmsh
 
 from dolfinx.io import gmshio
 
 
 def generate_mesh_with_crack(
+    comm,
     Lx=1.0,
     Ly=0.5,
     Lcrack=0.3,
@@ -16,14 +15,13 @@ def generate_mesh_with_crack(
     gdim=2,
     verbosity=4,
 ):
-    mesh_comm = MPI.COMM_WORLD
     model_rank = 0
     gmsh.initialize()
 
-    facet_tags = {"left": 1, "right": 2, "top": 3, "crack": 4, "bottom_no_crack": 5}
-    cell_tags = {"all": 20}
+    facet_map = {"left": 1, "right": 2, "top": 3, "crack": 4, "bottom_no_crack": 5}
+    cell_map = {"all": 20}
 
-    if mesh_comm.rank == model_rank:
+    if comm.rank == model_rank:
         model = gmsh.model()
         model.add("Rectangle")
         model.setCurrent("Rectangle")
@@ -34,11 +32,11 @@ def generate_mesh_with_crack(
         p4 = model.geo.addPoint(Lx, Ly, 0, lc)
         p5 = model.geo.addPoint(0, Ly, 0, lc)
         # Create the lines
-        l1 = model.geo.addLine(p1, p2, tag=facet_tags["crack"])
-        l2 = model.geo.addLine(p2, p3, tag=facet_tags["bottom_no_crack"])
-        l3 = model.geo.addLine(p3, p4, tag=facet_tags["right"])
-        l4 = model.geo.addLine(p4, p5, tag=facet_tags["top"])
-        l5 = model.geo.addLine(p5, p1, tag=facet_tags["left"])
+        l1 = model.geo.addLine(p1, p2, tag=facet_map["crack"])
+        l2 = model.geo.addLine(p2, p3, tag=facet_map["bottom_no_crack"])
+        l3 = model.geo.addLine(p3, p4, tag=facet_map["right"])
+        l4 = model.geo.addLine(p4, p5, tag=facet_map["top"])
+        l5 = model.geo.addLine(p5, p1, tag=facet_map["left"])
         # Create the surface
         cloop1 = model.geo.addCurveLoop([l1, l2, l3, l4, l5])
         _ = model.geo.addPlaneSurface([cloop1])
@@ -62,38 +60,37 @@ def generate_mesh_with_crack(
 
         # Assign mesh and facet tags
         surface_entities = [entity[1] for entity in model.getEntities(2)]
-        model.addPhysicalGroup(2, surface_entities, tag=cell_tags["all"])
+        model.addPhysicalGroup(2, surface_entities, tag=cell_map["all"])
         model.setPhysicalName(2, 2, "Rectangle surface")
         gmsh.option.setNumber("General.Verbosity", verbosity)
         model.mesh.generate(gdim)
 
-        for key, value in facet_tags.items():
+        for key, value in facet_map.items():
             model.addPhysicalGroup(1, [value], tag=value)
             model.setPhysicalName(1, value, key)
 
-        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, mesh_comm, model_rank, gdim=gdim)
+        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
         gmsh.finalize()
         msh.name = "rectangle"
         cell_tags.name = f"{msh.name}_cells"
         facet_tags.name = f"{msh.name}_facets"
 
-        return msh, cell_tags, facet_tags
+        return msh, cell_tags, facet_tags, cell_map, facet_map
 
 
-def generate_bar_mesh(Lx, Ly, lc):
+def generate_bar_mesh(comm, Lx, Ly, lc):
     """
     Create two-dimensional rectangle mesh using gmsh Python API.
     """
-    mesh_comm = MPI.COMM_WORLD
     model_rank = 0
     gmsh.initialize()
     gdim = 2
     tdim = 2
 
-    cell_map = {"rectangle": 0}
+    cell_map = {"rectangle": 20}
     facet_map = {"left": 1, "right": 2, "top": 3, "bottom": 4}
 
-    if mesh_comm.rank == model_rank:
+    if comm.rank == model_rank:
         gmsh.option.setNumber("Mesh.Algorithm", 5)
         gmsh.model.mesh.optimize("Netgen")
 
@@ -124,7 +121,7 @@ def generate_bar_mesh(Lx, Ly, lc):
 
         model.mesh.generate(tdim)
 
-        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, mesh_comm, model_rank, gdim=gdim)
+        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
         gmsh.finalize()
 
         msh.name = "rectangle"

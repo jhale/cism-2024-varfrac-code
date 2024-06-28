@@ -5,6 +5,7 @@ dependencies:
   - fenics-dolfinx
   - gmsh
   - jupyterlab
+  - jupytext
   - numba
   - pyvista
   - python-gmsh
