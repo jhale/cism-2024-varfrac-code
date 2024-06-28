@@ -110,11 +110,11 @@ Ly = 0.1  # Size of domain in y-direction
 # Define free parameters for SL-S model. Table 1 Zelosi and Maurini, third row.
 E_0 = 1.0  # Young's modulus.
 G_c = 1.0  # Fracture toughness.
-sigma_peak = 1.0 # Peak strength.
+sigma_peak = 1.0  # Peak strength.
 ell = 0.05  # Regularisation length scale.
 
 comm = MPI.COMM_WORLD
-msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell/5.0)
+msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell / 5.0)
 
 import pyvista  # noqa: E402
 
@@ -209,35 +209,55 @@ alpha_ub.x.scatter_forward()
 #
 # We will now define the L-SL constitutive model and the related parameters. In
 # turn these will be used to define the energy.
-# 
+#
 # The strain energy density of the S-LS constitutive model can be written as
-# 
+#
 # $$
-# \mathcal{E} = \frac{\kappa(\alpha)}{2} [\mathrm{tr}(\varepsilon)]^2 +
+# \mathcal{E}(\varepsilon, \alpha) = \frac{\kappa(\alpha)}{2} [\mathrm{tr}(\varepsilon)]^2 +
 # \mu(\alpha) | \mathrm{dev}(\varpepsilon) |^2 + w_1(w(\alpha) + \ell^2 | \grad
 # \alpha | ^ 2),
+# $$
+#
+# where $\varepsilon$ is the usual small strain tensor as a function of the
+# displacements $u$, $\mathrm{tr} is the trace operator, $\mathrm{dev}$ is the
+# deviatoric operator, and $alpha$ is the damage field. The dissipation
+# function is
+#
+# $$
+# w(\alpha) := 1 - (1 - \alpha^2),
+# $$
+#
+# and spherical and deviatoric degradation functions are
+#
+# $$
+# \kappa(\alpha) := \frac{1 - w(\alpha)}{1 + (\gamma_{\kappa} - 1) w (\alpha)} \kappa_0,
+# $$
+#
+# $$
+# \mu(\alpha) := \frac{1 - w(\alpha)}{1 + (\gamma_{\mu} - 1) w (\alpha)} \mu_0.
 # $$
 # +
 
 # Additional parameters
 nu_0 = 0.3  # Poisson's ratio.
 
+# Derived quantities from four free parameters
+mu_0 = E_0 / (2.0 * (1.0 + nu_0))  # First Lame parameter of undamaged material
+kappa_0 = E_0 / (2.0 * (1 - nu_0))  # Bulk modulus of undamaged material
+w_1 = G_c / (np.pi * ell)  # Energy required to damage unit volume in a homogeneous process
+
+# Softening parameters for spherical and deviatoric contributions
+gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
+t_peak = sigma_peak / E_0  # Peak traction
+t_star = 2 * G_c / (sigma_peak * Lx)  # Final failure traction for homogeneous solution
+t_f = 2 * G_c / (sigma_peak * np.pi * ell)  # Final failure traction for localised solution
+
 # Computational parameters
 pre_damage_num_steps = 10  # Number of load steps before damage
 post_damage_num_steps = 50  # Number of load steps after damage
 
-# Derived quantities from four free parameters
-mu_0 = E_0 / (2.0 * (1.0 + nu_0)) # First Lame parameter of undamaged material
-kappa_0 = E_0 / (2.0 * (1 - nu_0)) # Bulk modulus of undamaged material
-w_1 = G_c / (np.pi * ell) # Energy required to damage unit volume in a homogeneous process 
+loads = np.linspace(0.0, t_peak, pre_damage_num_steps)
 
-# Softening parameters for spherical and deviatoric contributions
-gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
-t_peak = sigma_peak / E_0 # Peak traction
-t_star = 2 * G_c / (sigma_peak * Lx) # Final failure traction for homogeneous solution 
-t_f = 2 * G_c / (sigma_peak * np.pi * ell) # Final failure traction for localised solution
-
-loads = np.linspace(0.0, t_c, pre_damage_num_steps)
 
 def eps(u):
     return ufl.sym(ufl.grad(u))
@@ -248,11 +268,11 @@ def w(alpha):
 
 
 def mu(alpha):
-    return mu_0*(1.0 - w(alpha))/(1.0 + (gamma_mu - 1.0)*w(alpha))
+    return mu_0 * (1.0 - w(alpha)) / (1.0 + (gamma_mu - 1.0) * w(alpha))
 
 
 def kappa(alpha):
-    return kappa_0*(1.0 - w(alpha))/(1.0 + (gamma_kappa - 1.0)*w(alpha))
+    return kappa_0 * (1.0 - w(alpha)) / (1.0 + (gamma_kappa - 1.0) * w(alpha))
 
 
 def damage_dissipation_density(alpha):
@@ -261,16 +281,16 @@ def damage_dissipation_density(alpha):
     return w_1_ * (w(alpha) + ell_squared * ufl.inner(ufl.grad(alpha), ufl.grad(alpha)))
 
 
-def elastic_deviatoric_energy_density(eps, alpha):
+def deviatoric_energy_density(eps, alpha):
     return mu(alpha) * ufl.inner(ufl.dev(eps), ufl.dev(eps))
 
 
-def elastic_isotropic_energy_density(eps, alpha):
+def isotropic_energy_density(eps, alpha):
     return 0.5 * kappa(alpha) * ufl.tr(eps) * ufl.tr(eps)
 
 
 def elastic_energy_density(eps, alpha):
-    return elastic_deviatoric_energy_density(eps, alpha) + elastic_isotropic_energy_density(
+    return deviatoric_energy_density(eps, alpha) + isotropic_energy_density(
         eps, alpha
     )
 
@@ -420,7 +440,7 @@ opts["stability_st_mat_mumps_icntl_24"] = 1
 stability_solver.setFromOptions()
 
 for i_t, t in enumerate(loads):
-    ux_right.value = t * t_c
+    ux_right.value = t * t_peak
 
     print(f"-- Solving for t = {t:3.2f} --")
 
