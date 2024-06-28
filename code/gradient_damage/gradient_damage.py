@@ -513,7 +513,9 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
         if error_L2 <= atol:
             return (error_L2, iteration)
 
-    raise RuntimeError(f"Could not converge after {max_iter} iterations, error {error_L2:3.4e}")
+    raise RuntimeError(
+        f"Could not converge after {max_iterations} iterations, error {error_L2:3.4e}"
+    )
 
 
 # + [markdown]
