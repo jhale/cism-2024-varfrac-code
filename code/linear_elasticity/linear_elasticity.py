@@ -4,6 +4,12 @@
 #     text_representation:
 #       extension: .py
 #       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.16.1
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
 # ---
 
 # %% [markdown]
@@ -52,8 +58,6 @@ import ufl
 
 sys.path.append("../utils")
 from meshes import generate_mesh_with_crack
-
-# %%
 # %% [markdown]
 # Let us generate a mesh using [gmsh](http://gmsh.info/).
 # The mesh is refined around the crack tip.
@@ -172,7 +176,7 @@ ds = ufl.Measure("ds", subdomain_data=mt)
 # Find the trial function $u$ such that for all test functions $v$
 #
 # $$
-# a(u, v) = L(v)
+# a(u, v) = L(v),
 # $$
 #
 # with
@@ -180,7 +184,7 @@ ds = ufl.Measure("ds", subdomain_data=mt)
 # $$
 # a(u,v)=\int_{\Omega\setminus\Gamma}\sigma(\varepsilon(u))\cdot
 # \varepsilon(v)\,\mathrm{d}x, \quad L(v)=\int_\Omega b\cdot v \,\mathrm{d}x +
-# \int_{\partial_N\Omega} f\cdot v \,\mathrm{d}s
+# \int_{\partial_N\Omega} f\cdot v \,\mathrm{d}s.
 # $$
 
 # %% [markdown]
