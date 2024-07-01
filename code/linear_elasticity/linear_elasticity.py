@@ -16,11 +16,8 @@
 #
 # This notebook serves as a tutorial to solve a problem of linear elasticity
 # using DOLFINx (the problem solving environment of the FEniCS Project).
-#
-# DOLFINx is library that allows for efficient parallel computation using the
-# Message Passing Interface (MPI). For the sake of simplicity, we assume here
-# to work on a single process and will not use MPI-related commands. Using
-# DOLFINx with MPI will be covered in a later session.
+# DOLFINx allows for the concise expression of finite element problems and
+# their efficient parallel solution using the Message Passing Interface (MPI).
 #
 # You can find a tutorial and useful resources for DOLFINx at the following links
 #
@@ -37,15 +34,6 @@
 #
 # %% [markdown]
 # We start importing the required libraries.
-
-# %%
-# %% [markdown]
-# Let us generate a mesh using [gmsh](http://gmsh.info/).
-# The mesh is refined around the crack tip.
-# The function to generate the mesh is implemented in the external file
-# `meshes.py` located in the directory `../utils`.
-# To import it, we add `../utils` to the path where the system is looking for
-# possible imports.
 # %%
 import sys
 
@@ -65,6 +53,14 @@ import ufl
 sys.path.append("../utils")
 from meshes import generate_mesh_with_crack
 
+# %%
+# %% [markdown]
+# Let us generate a mesh using [gmsh](http://gmsh.info/).
+# The mesh is refined around the crack tip.
+# The function to generate the mesh is implemented in the external file
+# `meshes.py` located in the directory `../utils`.
+# To import it, we add `../utils` to the path where the system is looking for
+# possible imports.
 # %%
 Lx = 1.0
 Ly = 0.5
@@ -88,7 +84,6 @@ msh, mt, ft, _, _ = generate_mesh_with_crack(
 # To plot the mesh we use `pyvista` see:
 # - https://jorgensd.github.io/dolfinx-tutorial/chapter3/component_bc.html
 # - https://docs.fenicsproject.org/dolfinx/main/python/demos/pyvista/demo_pyvista.py.html
-
 # %%
 import pyvista  # noqa: E402
 
@@ -106,8 +101,7 @@ if not pyvista.OFF_SCREEN:
 # %% [markdown]
 # ## Finite element function space
 #
-# We use here linear Lagrange triangle elements
-
+# We use vector-valued linear Lagrange elements on triangles.
 # %%
 element = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(msh.geometry.dim,))
 V = fem.functionspace(msh, element)
@@ -121,7 +115,7 @@ V = fem.functionspace(msh, element)
 # In our case we want to
 # - block the vertical component $u_y$ of the displacement on the part of the
 #   bottom boundary without the crack.
-# - block the horizontal component $u_x$ on the right boundary
+# - block the horizontal component $u_x$ on the right boundary.
 #
 # We first get the facets to block on the boundary
 # (`dolfinx.mesh.locate_entities_boundary`) and then the corresponding dofs
@@ -160,7 +154,6 @@ bcs = [bc_bottom, bc_right]
 #
 # In this example the surface measure `ds` includes tags to specify Neumann
 # bcs: `ds(1)` will mean the integral on the top boundary.
-
 # %%
 dx = ufl.Measure("dx", domain=msh)
 top_facets = mesh.locate_entities_boundary(
@@ -177,7 +170,12 @@ ds = ufl.Measure("ds", subdomain_data=mt)
 # giving the bilinear $a(u,v)$ and linear forms $L(v)$ of the weak formulation:
 #
 # Find the trial function $u$ such that for all test functions $v$
-# $a(u, v)=L(v)$ with
+#
+# $$
+# a(u, v) = L(v)
+# $$
+#
+# with
 #
 # $$
 # a(u,v)=\int_{\Omega\setminus\Gamma}\sigma(\varepsilon(u))\cdot
@@ -187,14 +185,12 @@ ds = ufl.Measure("ds", subdomain_data=mt)
 
 # %% [markdown]
 # Note on UFL terminology:
-# - `ufl.inner(sigma(eps(u)), eps(v))` is an expression
-# - `ufl.inner(sigma(eps(u)), eps(v)) * dx` is a form
-
+# - `ufl.inner(sigma(eps(u)), eps(v))` is an expression.
+# - `ufl.inner(sigma(eps(u)), eps(v)) * dx` is a form.
 # %%
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
-# TODO: Should introduce Constant here.
 E = 1.0
 nu = 0.3
 mu = E / (2.0 * (1.0 + nu))
@@ -254,11 +250,11 @@ uh.name = "displacement"
 # We can calculate the potential energy.
 
 # %%
-energy = fem.assemble_scalar(fem.form(0.5 * a(uh, uh) - L(uh)))
+energy = comm.allreduce(fem.assemble_scalar(fem.form(0.5 * a(uh, uh) - L(uh))), op=MPI.SUM)
 print(f"The potential energy is {energy:2.3e}")
 
 # %% [markdown]
-# We can save the results to a file, that we can open with
+# We can save the results to a file, that can be opened with
 # [Paraview](https://www.paraview.org/).
 
 # %%
@@ -274,9 +270,9 @@ with io.XDMFFile(MPI.COMM_WORLD, "output/elasticity-demo.xdmf", "w") as file:
 # %%
 sigma_iso = 1.0 / 3.0 * ufl.tr(sigma(eps(uh))) * ufl.Identity(len(uh))
 sigma_dev = sigma(eps(uh)) - sigma_iso
-von_Mises = ufl.sqrt(3.0 / 2.0 * ufl.inner(sigma_dev, sigma_dev))
+von_mises = ufl.sqrt(3.0 / 2.0 * ufl.inner(sigma_dev, sigma_dev))
 V_von_mises = fem.functionspace(msh, ("DG", 0))
-stress_expr = fem.Expression(von_Mises, V_von_mises.element.interpolation_points())
+stress_expr = fem.Expression(von_mises, V_von_mises.element.interpolation_points())
 vm_stress = fem.Function(V_von_mises)
 vm_stress.interpolate(stress_expr)
 
