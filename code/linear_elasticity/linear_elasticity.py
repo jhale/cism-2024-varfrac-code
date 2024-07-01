@@ -58,6 +58,7 @@ import ufl
 
 sys.path.append("../utils")
 from meshes import generate_mesh_with_crack
+
 # %% [markdown]
 # Let us generate a mesh using [gmsh](http://gmsh.info/).
 # The mesh is refined around the crack tip.
