@@ -492,14 +492,12 @@ u.x.array[:] = 0.0
 # fixed-point algorithm consisting of alternate minimization with respect to
 # $u$ at fixed $\alpha$ and then for $\alpha$ at fixed $u$ until convergence is
 # achieved.
+#
+# We now define a function that `alternate_minimization` that performs the
+# alternative minimisation algorithm and assesses convergence based on the
+# $L^2$ norm of the difference between the damage field at the current iterate
+# and the previous iterate.
 # +
-
-# + [markdown]
-# We now define a function that performs the alternative minimisation algorithm
-# and assesses convergence based on the $L^2$ norm of the difference between
-# the damage field at the current iterate and the previous iterate.
-# +
-
 
 def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
@@ -546,7 +544,8 @@ for i_t, t in enumerate(loads):
     energies[i_t, 0] = t
 
     # Update the lower bound to ensure irreversibility of damage field.
-    alpha_lb.x.array[:] = alpha_lb.x.array
+    alpha_lb.x.array[:] = alpha.x.array
+    
     print(f"-- Solving for t = {t:3.2f} --")
     alternate_minimization(u, alpha)
     plot_damage_state(u, alpha)
