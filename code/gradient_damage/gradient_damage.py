@@ -75,6 +75,11 @@
 #
 # The container images built by the FEniCS Project do not have the `sympy`
 # module so we install it using pip using the Jupyterbook terminal.
+#
+# You can install sympy in your JupyterLab by opening a Terminal and running:
+#
+#     pip install sympy
+#
 # +
 import sys
 
@@ -621,6 +626,7 @@ plt.savefig(f"output/damage_line_rank_{MPI.COMM_WORLD.rank:d}.png")
 # 1. Replace the mesh with an unstructured mesh generated with gmsh.
 # 2. Refactor `alternate_minimization` as an external function and put it
 #    in a seperate `.py` file and `import` it into the notebook.
-# 3. Run simulations with:
+# 3. Implement the AT2 model.
+# 4. Run simulations with:
 #     1. A slab with an hole in the center.
 #     2. A slab with a V-notch.
