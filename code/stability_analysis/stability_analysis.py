@@ -127,7 +127,7 @@ if not pyvista.OFF_SCREEN:
 # We setup the finite element space, the states, the bound constraints on the
 # states and UFL measures.
 #
-# We use (vector-valued) linear Lagrange finite elements on quadrilaterals for
+# We use (vector-valued) linear Lagrange finite elements on triangles for
 # displacement and damage.
 # +
 element_u = basix.ufl.element("Lagrange", msh.basix_cell(), degree=1, shape=(msh.geometry.dim,))
@@ -215,15 +215,18 @@ w_1 = G_c / (np.pi * ell)  # Energy required to damage unit volume in a homogene
 
 # Softening parameters for spherical and deviatoric contributions
 gamma = gamma_mu = gamma_kappa = (2 * G_c * E_0) / (np.pi * ell * sigma_peak**2)
-t_peak = sigma_peak / E_0  # Peak traction
-t_star = 2 * G_c / (sigma_peak * Lx)  # Final failure traction for homogeneous solution
-t_f = 2 * G_c / (sigma_peak * np.pi * ell)  # Final failure traction for localised solution
+t_peak = sigma_peak / E_0  # Peak strain
+t_star = 2 * G_c / (sigma_peak * Lx)  # Final failure strain for homogeneous solution
+t_f = 2 * G_c / (sigma_peak * np.pi * ell)  # Final failure strain for localised solution
 ell_ch = gamma * np.pi * ell  # Cohesive zone length scale.
 
 # Dimensionless parameters. The model response depends on these two parameters
 # only.
 lmbda_str = Lx / ell_ch  # Structural length
 lmbda_reg = ell / ell_ch  # Regularisation length
+print(lmbda_str)
+print(lmbda_reg)
+print(t_peak)
 
 # + [markdown]
 # The strain energy density of the S-LS constitutive model can be written as
@@ -431,7 +434,7 @@ opts["stability_st_mat_mumps_icntl_24"] = 1
 stability_solver.setFromOptions()
 
 # Extend to 2*t_peak
-loads = np.linspace(0.0, 4 * t_peak, 200)
+loads = np.linspace(0.0, 2 * t_peak, 20)
 
 
 for i_t, load in enumerate(loads):
