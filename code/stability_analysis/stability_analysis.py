@@ -4,6 +4,12 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
+#       format_version: '1.5'
+#       jupytext_version: 1.16.1
+#   kernelspec:
+#     display_name: Python 3 (ipykernel)
+#     language: python
+#     name: python3
 # ---
 
 # + [markdown]
@@ -20,15 +26,6 @@
 # - Stability and crack nucleation in variational phase-field models of
 # fracture: effects of length-scales and stress multi-axiality. Zolesi and
 # Maurini 2024. Preprint. https://hal.sorbonne-universite.fr/hal-04552309
-#
-# It is well understood that the classical phase-field model of brittle
-# fracture, e.g. AT1 or AT2 type models, converge asymptotically to the
-# Griffith fracture model as the regularisation length goes to zero. This
-# result guarantees that *pre-existing* cracks propagate consistently with the
-# Griffith model.
-#
-# It is also widely observed that phase-field models allow for the nucleation of new
-# cracks from a completely undamaged state (i.e. without *pre-existing* cracks).
 #
 # The essence of the approach is as follows:
 #
@@ -90,6 +87,10 @@ sys.path.append("../utils/")
 
 from meshes import generate_bar_mesh
 from petsc_problems import SNESProblem
+from plots import plot_damage_state
+from pyvista.utilities.xvfb import start_xvfb
+
+start_xvfb(wait=0.5)
 
 # + [markdown]
 # ## Mesh
@@ -189,10 +190,6 @@ bcs_alpha = [
 
 bcs_all = bcs_u + bcs_alpha
 
-# Set boundary condition on damage upper bound
-fem.set_bc(alpha_ub.x.array, bcs_alpha)
-alpha_ub.x.scatter_forward()
-
 # + [markdown]
 # ## Variational formulation of the problem
 # ### Selective Linear-Softening model
@@ -206,7 +203,6 @@ alpha_ub.x.scatter_forward()
 nu_0 = 0.3  # Poisson's ratio.
 
 # Define free parameters for SL-S model. Table 1 Zelosi and Maurini, third row.
-# TODO: Make this correspond to Figure 7b).
 E_0 = 1.0  # Young's modulus
 G_c = 1.0  # Fracture toughness
 sigma_peak = 1.0  # Peak strength
@@ -365,7 +361,8 @@ solver_alpha_snes.setFromOptions()
 
 
 def simple_monitor(u, alpha, iteration, error_L2):
-    print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
+    # print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
+    pass
 
 
 def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_monitor):
@@ -423,7 +420,7 @@ stability_solver.setOptionsPrefix("stability_")
 
 opts["stability_eps_type"] = "krylovschur"
 opts["stability_eps_target"] = "smallest_real"
-opts["stability_eps_target"] = -1e-5
+opts["stability_eps_target"] = -0.1
 opts["stability_st_type"] = "sinvert"
 opts["stability_st_shift"] = -0.1
 opts["stability_eps_tol"] = 1e-7
@@ -433,11 +430,9 @@ opts["stability_st_pc_factor_mat_solver_type"] = "mumps"
 opts["stability_st_mat_mumps_icntl_24"] = 1
 stability_solver.setFromOptions()
 
-pre_damage_num_steps = 10  # Number of load steps before damage
-post_damage_num_steps = 50  # Number of load steps after damage
-
 # Extend to 2*t_peak
-loads = np.linspace(0.0, 2 * t_peak, pre_damage_num_steps)
+loads = np.linspace(0.0, 4 * t_peak, 200)
+
 
 for i_t, load in enumerate(loads):
     ux_right.value = load
@@ -445,29 +440,34 @@ for i_t, load in enumerate(loads):
     print(f"-- Solving for load = {load:3.2f} --")
 
     # Update the lower bound to ensure irreversibility of damage field.
-    alpha.vector.copy(alpha_lb.vector)
+    alpha_lb.x.array[:] = alpha.x.array
     alpha_lb.x.scatter_forward()
     alternate_minimization(u, alpha)
+    plot_damage_state(u, alpha, load=load)
 
     # Assemble operators on union of active (damaged) and inactive (undamaged)
     # sets.
-    # TODO: Remove boundary conditions from here.
     A.zeroEntries()
-    fem.petsc.assemble_matrix_block(A, A_form, bcs=bcs_all)
+    fem.petsc.assemble_matrix_block(A, A_form)
     A.assemble()
 
     B.zeroEntries()
-    fem.petsc.assemble_matrix_block(B, B_form, bcs=bcs_all)
+    fem.petsc.assemble_matrix_block(B, B_form)
     B.assemble()
 
-    # TODO: Place boundary conditions into the active set (or, remove from
-    # inactive set).
     # Get inactive sets.
     u_inactive_set = np.arange(0, V_u.dofmap.index_map.size_local, dtype=np.int32)
+    dirichlet_u = np.concatenate([dofs_ux_left, dofs_uy_left, dofs_ux_right])
+    u_restrict = np.setdiff1d(u_inactive_set, dirichlet_u)
     # Get inactive sets.
     alpha_inactive_set = solver_alpha_snes.getVIInactiveSet().array
+    # NOTE: This always returns nothing!
+    print(alpha_inactive_set.shape)
+    dirichlet_alpha = np.concatenate([dofs_alpha_left, dofs_alpha_right])
+    alpha_restrict = np.setdiff1d(alpha_inactive_set, dirichlet_alpha)
+    # Remove displacement degrees of freedom from inactive set.
 
-    restriction = Restriction([V_u, V_alpha], [u_inactive_set, alpha_inactive_set])
+    restriction = Restriction([V_u, V_alpha], [u_restrict, alpha_restrict])
 
     # Create restricted operators.
     A_restricted = restriction.restrict_matrix(A)
