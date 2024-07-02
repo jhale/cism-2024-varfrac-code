@@ -304,7 +304,7 @@ c_w = 4 * sympy.integrate(sympy.sqrt(w(z)), (z, 0, 1))
 print(f"c_w = {c_w}")
 
 # + [markdown]
-# 2. The half-width of a localisation zone is given by:
+# 2. The half-width $D$ of the localisation zone is given by:
 #
 # $$
 # D = c_{1/w} \ell,\qquad c_{1/w}=\int_0^1 \frac{1}{\sqrt{w(\alpha)}}d\alpha
@@ -313,7 +313,7 @@ print(f"c_w = {c_w}")
 # +
 c_1w = sympy.integrate(sympy.sqrt(1 / w(z)), (z, 0, 1))
 print(f"c_1/w = {c_1w}")
-print(f"D = {c_1w*ell}")
+print(f"D = {c_1w*ell_}")
 
 # + [markdown]
 # 3. The elastic limit of the material is:
@@ -390,10 +390,10 @@ plot_damage_state(u, alpha, load=load)
 # ### Damage problem with bound-constraint
 #
 # The damage problem ($\alpha$) at fixed displacement ($u$) is a variational
-# inequality due to the irreversibility constraint. We solve it using a
-# specific solver for bound-constrained provided by PETSc, called SNESVI. To
-# this end we define with a specific syntax a class defining the problem, and
-# the lower (`lb`) and upper (`ub`) bounds.
+# inequality due to the irreversibility constraint and the bounds on the
+# damage. We solve it using a specific solver for bound-constrained provided by
+# PETSc, called SNESVI. To this end we define with a specific syntax a class
+# defining the problem, and the lower (`lb`) and upper (`ub`) bounds.
 # +
 E_alpha = ufl.derivative(total_energy, alpha, ufl.TestFunction(V_alpha))
 E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
@@ -561,6 +561,10 @@ for i_t, t in enumerate(loads):
         op=MPI.SUM,
     )
 
+# + [markdown]
+# We now plot the total, elastic and dissipated energies throughout the
+# pseudo-time evolution against the applied displacement.
+# +
 (p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
@@ -580,16 +584,17 @@ plt.savefig("output/energies.png")
 # The plots above indicates that the crack appears at the elastic limit
 # calculated analytically (see the gridlines) and that the dissipated energy
 # coincides with the length of the crack times the fracture toughness $G_c$.
-# Let's check the dissipated energy explicity
+# Let's check the dissipated energy explicity.
 # +
 surface_energy_value = comm.allreduce(
     dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)), op=MPI.SUM
 )
-print(f"The dissipated energy on a crack is {surface_energy_value:.3f}")
-print(f"The expected value is {H:f}")
+print(f"The numerical dissipated energy on the crack is {surface_energy_value:.3f}")
+print(f"The expected analytical value is {H:.3f}")
 
 # + [markdown]
-# Let us look at the damage profile
+# Let's take a look at the damage profile and verify that we acheive the
+# expected solution for the AT1 model.
 # +
 tol = 0.001  # Avoid hitting the boundary of the mesh
 num_points = 101
@@ -614,12 +619,13 @@ plt.savefig(f"output/damage_line_rank_{MPI.COMM_WORLD.rank:d}.png")
 # ## Exercises
 #
 # You can duplicate this notebook by selecting `File > Duplicate Python File` in
-# the menu.
+# the menu. There are many experiments that you can try easily.
 #
-# 1. Replace the mesh with an unstructured mesh generated with gmsh.
-# 2. Refactor `alternate_minimization` as an external function and put it
+# 1. Experiment with the regularisation length scale and the mesh size.
+# 2. Replace the mesh with an unstructured mesh generated with gmsh.
+# 3. Refactor `alternate_minimization` as an external function and put it
 #    in a seperate `.py` file and `import` it into the notebook.
-# 3. Implement the AT2 model.
-# 4. Run simulations with:
+# 4. Implement the AT2 model.
+# 5. Run simulations with:
 #     1. A slab with an hole in the center.
 #     2. A slab with a V-notch.
