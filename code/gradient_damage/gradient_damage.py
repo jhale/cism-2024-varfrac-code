@@ -312,8 +312,9 @@ print(f"c_w = {c_w}")
 #
 # +
 c_1w = sympy.integrate(sympy.sqrt(1 / w(z)), (z, 0, 1))
+D = c_1w * ell_
 print(f"c_1/w = {c_1w}")
-print(f"D = {c_1w*ell_}")
+print(f"D = {D}")
 
 # + [markdown]
 # 3. The elastic limit of the material is:
@@ -594,7 +595,9 @@ print(f"The expected analytical value is {H:.3f}")
 
 # + [markdown]
 # Let's take a look at the damage profile and verify that we acheive the
-# expected solution for the AT1 model.
+# expected solution for the AT1 model. We can easily see that the solution
+# is bounded between $0$ and $1$ and that the decay to zero of the damage profile
+# happens around the theoretical half-width $D$.
 # +
 tol = 0.001  # Avoid hitting the boundary of the mesh
 num_points = 101
@@ -607,6 +610,8 @@ points[:, 1] = H / 2.0
 fig = plt.figure()
 points_on_proc, alpha_val = evaluate_on_points(alpha, points)
 plt.plot(points_on_proc[:, 0], alpha_val, "k", linewidth=2, label="damage")
+plt.axvline(x=0.5 - D, color="grey", linestyle="--", linewidth=2)
+plt.axvline(x=0.5 + D, color="grey", linestyle="--", linewidth=2)
 plt.grid(True)
 plt.xlabel("x")
 plt.ylabel(r"damage $\alpha$")
