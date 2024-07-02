@@ -499,6 +499,7 @@ u.x.array[:] = 0.0
 # and the previous iterate.
 # +
 
+
 def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
@@ -545,7 +546,7 @@ for i_t, t in enumerate(loads):
 
     # Update the lower bound to ensure irreversibility of damage field.
     alpha_lb.x.array[:] = alpha.x.array
-    
+
     print(f"-- Solving for t = {t:3.2f} --")
     alternate_minimization(u, alpha)
     plot_damage_state(u, alpha)
