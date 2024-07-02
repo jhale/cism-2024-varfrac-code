@@ -4,14 +4,9 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.5'
-#       jupytext_version: 1.16.1
-#   kernelspec:
-#     display_name: Python 3 (ipykernel)
-#     language: python
-#     name: python3
 # ---
 
+# + [markdown]
 # # Gradient damage as phase-field models of brittle fracture
 #
 # *Authors:*
@@ -105,8 +100,8 @@ from plots import plot_damage_state
 from pyvista.utilities.xvfb import start_xvfb
 
 start_xvfb(wait=0.5)
-# -
 
+# + [markdown]
 # ## Mesh
 #
 # We define the mesh using the built-in DOLFINx mesh generation functions for
@@ -135,8 +130,8 @@ plotter.add_axes()
 plotter.set_scale(5, 5)
 if not pyvista.OFF_SCREEN:
     plotter.show()
-# -
 
+# + [markdown]
 # ## Setting the stage
 #
 # We setup the finite element space, the states, the bound constraints on the
@@ -166,16 +161,16 @@ alpha_ub.x.array[:] = 1.0
 dx = ufl.Measure("dx", domain=msh)
 
 
-# -
-
+# + [markdown]
 # ### Boundary conditions
 # We impose Dirichlet boundary conditions on the displacement and the damage
 # field on the appropriate parts of the boundary.
 #
 # We do this using predicates. DOLFINx will pass an array of the midpoints of
 # all facets (edges) as an argument `x` with shape `(3, num_edges)` to our
-# predicate. The predicate we define must return an array of booleans of shape `(num_edges,)`
-# containing `True` if the edge is on the desired boundary, and `False` if not.
+# predicate. The predicate we define must return an boolean array of shape
+# `(num_edges)` containing `True` if the edge is on the desired boundary, and
+# `False` if not.
 # +
 def bottom(x):
     return np.isclose(x[1], 0.0)
@@ -193,8 +188,7 @@ def left(x):
     return np.isclose(x[0], 0.0)
 
 
-# -
-
+# + [markdown]
 # The function `mesh.locate_entities_boundary` calculates the indices of the
 # edges on the boundary defined by our predicate.
 # +
@@ -203,8 +197,8 @@ fdim = msh.topology.dim - 1
 left_facets = mesh.locate_entities_boundary(msh, fdim, left)
 right_facets = mesh.locate_entities_boundary(msh, fdim, right)
 bottom_facets = mesh.locate_entities_boundary(msh, fdim, bottom)
-# -
 
+# + [markdown]
 # The function `fem.locate_dofs_topological` calculates the indices of the
 # degrees of freedom associated with the edges. This is the information the
 # assembler will need to apply Dirichlet boundary conditions.
@@ -219,8 +213,8 @@ bc_ux_right = fem.dirichletbc(u_D, right_boundary_dofs_ux, V_u.sub(0))
 bc_uy_bottom = fem.dirichletbc(0.0, bottom_boundary_dofs_uy, V_u.sub(1))
 
 bcs_u = [bc_ux_left, bc_ux_right, bc_uy_bottom]
-# -
 
+# + [markdown]
 # and similarly for the damage field.
 # +
 left_boundary_dofs_alpha = fem.locate_dofs_topological(V_alpha, fdim, left_facets)
@@ -229,8 +223,8 @@ bc_alpha_left = fem.dirichletbc(0.0, left_boundary_dofs_alpha, V_alpha)
 bc_alpha_right = fem.dirichletbc(0.0, right_boundary_dofs_alpha, V_alpha)
 
 bcs_alpha = [bc_alpha_left, bc_alpha_right]
-# -
 
+# + [markdown]
 # ## Variational formulation of the problem
 # ### Constitutive model
 #
@@ -252,11 +246,10 @@ bcs_alpha = [bc_alpha_left, bc_alpha_right]
 # The *real* material parameters (in the sense that they are those that affect
 # the results) are
 # - the Poisson ratio $\nu$ and
-# - the ratio $\ell/L$ between internal length $\ell$ and the characteristic
-# domain length $L$.
+# - the ratio $\ell/L$ between internal length $\ell$ and the msh size $L$.
 # +
 E, nu = (
-    fem.Constant(msh, dolfinx.default_scalar_type(1.0)),
+    fem.Constant(msh, dolfinx.default_scalar_type(100.0)),
     fem.Constant(msh, dolfinx.default_scalar_type(0.3)),
 )
 Gc = fem.Constant(msh, dolfinx.default_scalar_type(1.0))
@@ -290,31 +283,35 @@ def sigma(eps, alpha):
     return a(alpha) * sigma_0(eps)
 
 
-# -
-
+# + [markdown]
 # **Exercise:**
-# 1. Show that it is possible to relate the dissipation constant $w_1$ to the energy
-# dissipated in a smeared representation of a crack through the following
-# relation
+# 1. Show that it is possible to relate the dissipation constant $w_1$ to the
+# energy dissipated in a smeared representation of a crack through the
+# following relation:
 #
 # $$
-# {G_c}={c_w}\,w_1\ell,\qquad c_w = 4\int_0^1\sqrt{w(\alpha)}d\alpha.
+# {G_c}={c_w}\,w_1\ell,\qquad c_w = 4\int_0^1\sqrt{w(\alpha)}d\alpha
 # $$
 #
+# For the function above we get (we perform the integral with `sympy`).
+# +
 z = sympy.Symbol("z")
 c_w = 4 * sympy.integrate(sympy.sqrt(w(z)), (z, 0, 1))
 print(f"c_w = {c_w}")
 
-#
-# 2. The half-width $D$of a localisation zone is given by:
+# + [markdown]
+# 2. The half-width of a localisation zone is given by:
 #
 # $$
-# D = c_{1/w} \ell,\qquad c_{1/w}=\int_0^1 \frac{1}{\sqrt{w(\alpha)}}d\alpha
+# D =  c_{1/w} \ell,\qquad c_{1/w}=\int_0^1 \frac{1}{\sqrt{w(\alpha)}}d\alpha
 # $$
 #
+# +
 c_1w = sympy.integrate(sympy.sqrt(1 / w(z)), (z, 0, 1))
-print("c_1/w = ", c_1w)
+print(f"c_1/w = {c_1w}")
+print(f"D = {c_1w*ell}")
 
+# + [markdown]
 # 3. The elastic limit of the material is:
 #
 # $$
@@ -325,22 +322,23 @@ print("c_1/w = ", c_1w)
 # *Hint:* Calculate the damage profile and the energy of a localised solution
 # with vanishing stress in a 1d traction problem
 #
-# For the function above we get (we perform the integral with `sympy`).
 # +
 tmp = 2 * (sympy.diff(w(z), z) / sympy.diff(1 / a(z), z)).subs({"z": 0})
 sigma_c = sympy.sqrt(tmp * Gc.value * E.value / (c_w * ell.value))
-print("sigma_c = {sigma_c}")
+print(f"sigma_c = {sigma_c}")
+
 
 eps_c = float(sigma_c / E.value)
 print(f"eps_c = {eps_c}")
-# -
 
+# + [markdown]
 # ### Energy functional and its derivatives
 #
 # We use the `ufl` package of FEniCS to define the energy functional. The
 # consistent residual (first Gateaux derivative of the energy functional) and
 # Jacobian (second Gateaux derivative of the energy functional) can then be
 # derived through automatic symbolic differentiation using `ufl.derivative`.
+# +
 f = fem.Constant(msh, PETSc.ScalarType((0.0, 0.0)))
 elastic_energy = 0.5 * ufl.inner(sigma(eps(u), alpha), eps(u)) * dx
 dissipated_energy = (
@@ -349,6 +347,7 @@ dissipated_energy = (
 external_work = ufl.inner(f, u) * dx
 total_energy = elastic_energy + dissipated_energy - external_work
 
+# + [markdown]
 # ## Solvers
 # ### Displacement problem
 # The displacement problem ($u$) at for fixed damage ($\alpha$) is a linear
@@ -375,15 +374,17 @@ solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_u_snes.getKSP().getPC().setType("lu")
-# -
 
+# + [markdown]
 # We test the solution of the elasticity problem
+# +
 load = 1.0
 u_D.value = load
 u.x.array[:] = 0
 solver_u_snes.solve(None, u.vector)
 plot_damage_state(u, alpha, load=load)
 
+# + [markdown]
 # ### Damage problem with bound-constraint
 #
 # The damage problem ($\alpha$) at fixed displacement ($u$) is a variational
@@ -413,8 +414,8 @@ solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
 # We set the bound
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
-# -
 
+# + [markdown]
 # ### Solver description
 #
 # A full description of the reduced space active set Newton solver
@@ -466,9 +467,11 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 # $d^k$ we should move.
 #
 # Let us now test the damage solver
+# +
 solver_alpha_snes.solve(None, alpha.vector)
 plot_damage_state(u, alpha, load=load)
 
+# + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
 #
 # We solve the nonlinear problem in $(u,\alpha)$ at each pseudo-timestep by a
@@ -484,8 +487,8 @@ for i in range(10):
     solver_u_snes.solve(None, u.vector)
     solver_alpha_snes.solve(None, alpha.vector)
     plot_damage_state(u, alpha, load)
-# -
 
+# + [markdown]
 # We now define a function that performs the alternative minimisation algorithm
 # and assesses convergence based on the $L^2$ norm of the damage field.
 # +
@@ -522,13 +525,16 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
     )
 
 
-# -
-
+# + [markdown]
 # We reset the displacement and damage fields.
+# +
 u.x.array[:] = 0.0
 alpha.x.array[:] = 0.0
+alternate_minimization(u, alpha)
+plot_damage_state(u, alpha, load=load)
 
 
+# + [markdown]
 # ## Time-stepping: solving a quasi-static problem
 # +
 load0 = eps_c * L  # reference value for the loading (imposed displacement)
@@ -570,20 +576,22 @@ plt.xlabel("Displacement")
 plt.ylabel("Energy")
 
 plt.savefig("output/energies.png")
-# -
 
+# + [markdown]
 # ## Verification
 #
 # The plots above indicates that the crack appears at the elastic limit
 # calculated analytically (see the gridlines) and that the dissipated energy
 # coincides with the length of the crack times the fracture toughness $G_c$.
 # Let's check the dissipated energy explicity
+# +
 surface_energy_value = comm.allreduce(
     dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)), op=MPI.SUM
 )
 print(f"The dissipated energy on a crack is {surface_energy_value:.3f}")
 print(f"The expected value is {H:f}")
 
+# + [markdown]
 # Let us look at the damage profile
 # +
 tol = 0.001  # Avoid hitting the boundary of the mesh
@@ -603,11 +611,11 @@ plt.legend()
 
 # If run in parallel as a Python file, we save a plot per processor
 plt.savefig(f"output/damage_line_rank_{MPI.COMM_WORLD.rank:d}.png")
-# -
 
+# + [markdown]
 # ## Exercises
 #
-# You can duplicate this notebook by selecting `File > Duplicate Notebook` in
+# You can duplicate this notebook by selecting `File > Duplicate Python File` in
 # the menu.
 #
 # 1. Replace the mesh with an unstructured mesh generated with gmsh.
