@@ -14,8 +14,8 @@
 # - Corrado Maurini (Sorbonne Université)
 #
 # In this notebook we implement a numerical solution of the quasi-static
-# evolution problem for gradient damage models, and show how it can be used
-# to solve brittle fracture problems.
+# evolution problem for gradient damage models, and show how it can be used to
+# solve brittle fracture problems.
 #
 # Denote $u$ the displacement field (vector-valued) and by $\alpha$
 # (scalar-valued) the damage field. We consider the energy functional
@@ -62,7 +62,8 @@
 # \Omega = [0,L] \times [0,H],
 # $
 # and the problem is displacement controlled by setting the displacement
-# $u=(t,0)$ on $x=L$ and the left-end is fully clamped $u=(0,0)$ on $x=0$.
+# $u=(t,0)$ on the right end, and the left end is fully clamped $u=(0,0)$.
+# Damage is set to be zero on the left and right ends.
 #
 # You can find further information about this model in:
 # - Marigo, J.-J., Maurini, C., & Pham, K. (2016). An overview of the modelling
@@ -155,12 +156,6 @@ V_alpha = fem.functionspace(msh, element_alpha)
 u = fem.Function(V_u, name="displacement")
 alpha = fem.Function(V_alpha, name="damage")
 
-# Lower bound for the damage field
-alpha_lb = fem.Function(V_alpha, name="lower bound")
-alpha_lb.x.array[:] = 0.0
-# Upper bound for the damage field
-alpha_ub = fem.Function(V_alpha, name="upper bound")
-alpha_ub.x.array[:] = 1.0
 
 # Domain measure.
 dx = ufl.Measure("dx", domain=msh)
@@ -212,7 +207,11 @@ left_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, left_facet
 right_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, right_facets)
 bottom_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, bottom_facets)
 
-u_D = fem.Constant(msh, PETSc.ScalarType(1.0))
+# + [markdown]
+# Using `fem.Constant` will allow us to update the value of the boundary
+# condition applied in the pseudo-time loop.
+# +
+u_D = fem.Constant(msh, PETSc.ScalarType(0.5))
 bc_ux_left = fem.dirichletbc(0.0, left_boundary_dofs_ux, V_u.sub(0))
 bc_ux_right = fem.dirichletbc(u_D, right_boundary_dofs_ux, V_u.sub(0))
 bc_uy_bottom = fem.dirichletbc(0.0, bottom_boundary_dofs_uy, V_u.sub(1))
@@ -308,7 +307,7 @@ print(f"c_w = {c_w}")
 # 2. The half-width of a localisation zone is given by:
 #
 # $$
-# D =  c_{1/w} \ell,\qquad c_{1/w}=\int_0^1 \frac{1}{\sqrt{w(\alpha)}}d\alpha
+# D = c_{1/w} \ell,\qquad c_{1/w}=\int_0^1 \frac{1}{\sqrt{w(\alpha)}}d\alpha
 # $$
 #
 # +
@@ -332,7 +331,6 @@ tmp = 2 * (sympy.diff(w(z), z) / sympy.diff(1 / a(z), z)).subs({"z": 0})
 sigma_c = sympy.sqrt(tmp * Gc.value * E.value / (c_w * ell.value))
 print(f"sigma_c = {sigma_c}")
 
-
 eps_c = float(sigma_c / E.value)
 print(f"eps_c = {eps_c}")
 
@@ -340,9 +338,9 @@ print(f"eps_c = {eps_c}")
 # ### Energy functional and its derivatives
 #
 # We use the `ufl` package of FEniCS to define the energy functional. The
-# consistent residual (first Gateaux derivative of the energy functional) and
-# Jacobian (second Gateaux derivative of the energy functional) can then be
-# derived through automatic symbolic differentiation using `ufl.derivative`.
+# residual (first Gateaux derivative of the energy functional) and Jacobian
+# (second Gateaux derivative of the energy functional) can then be derived
+# through automatic symbolic differentiation using `ufl.derivative`.
 # +
 f = fem.Constant(msh, PETSc.ScalarType((0.0, 0.0)))
 elastic_energy = 0.5 * ufl.inner(sigma(eps(u), alpha), eps(u)) * dx
@@ -360,8 +358,7 @@ total_energy = elastic_energy + dissipated_energy - external_work
 # We solve it with a standard linear solver. We use automatic differention to
 # get the first derivative of the energy. We use a direct solve to solve the
 # linear system, but you can also set iterative solvers and preconditioners
-# when solving large problem in parallel. We will discuss this in the next
-# tutorial.
+# when solving large problem in parallel.
 # +
 E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
@@ -385,7 +382,7 @@ solver_u_snes.getKSP().getPC().setType("lu")
 # +
 load = 1.0
 u_D.value = load
-u.x.array[:] = 0
+u.x.array[:] = 0.0
 solver_u_snes.solve(None, u.vector)
 plot_damage_state(u, alpha, load=load)
 
@@ -417,7 +414,13 @@ solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_alpha_snes.getKSP().setType("preonly")
 solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
-# We set the bound
+
+# Lower bound for the damage field
+alpha_lb = fem.Function(V_alpha, name="lower bound")
+alpha_lb.x.array[:] = 0.0
+# Upper bound for the damage field
+alpha_ub = fem.Function(V_alpha, name="upper bound")
+alpha_ub.x.array[:] = 1.0
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 
 # + [markdown]
@@ -471,31 +474,30 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 # enhanced with a line search procedure to compute how far along the direction
 # $d^k$ we should move.
 #
-# Let us now test the damage solver
+# Let us now test the solution of the damage problem
 # +
 solver_alpha_snes.solve(None, alpha.vector)
 plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
-# ### The static problem: solution with the alternate minimization algorithm
-#
-# We solve the nonlinear problem in $(u,\alpha)$ at each pseudo-timestep by a
-# fixed-point algorithm consisting in alternate minimization with respect to
-# $u$ at fixed $\alpha$ and then for $\alpha$ at fixed $u$ until convergence is
-# achieved.
+# Before continuing we reset the displacement and damage to zero.
 # +
 alpha.x.array[:] = 0.0
 u.x.array[:] = 0.0
 
-for i in range(10):
-    print(f"Iteration {i}")
-    solver_u_snes.solve(None, u.vector)
-    solver_alpha_snes.solve(None, alpha.vector)
-    plot_damage_state(u, alpha, load)
+# + [markdown]
+# ### The static problem: solution with the alternate minimization algorithm
+#
+# We solve the non-linear problem in $(u,\alpha)$ at each pseudo-timestep by a
+# fixed-point algorithm consisting of alternate minimization with respect to
+# $u$ at fixed $\alpha$ and then for $\alpha$ at fixed $u$ until convergence is
+# achieved.
+# +
 
 # + [markdown]
 # We now define a function that performs the alternative minimisation algorithm
-# and assesses convergence based on the $L^2$ norm of the damage field.
+# and assesses convergence based on the $L^2$ norm of the difference between
+# the damage field at the current iterate and the previous iterate.
 # +
 
 
@@ -508,16 +510,16 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
     alpha_old.x.array[:] = alpha.x.array
 
     for iteration in range(max_iterations):
-        # Solve displacement
+        # Solve for displacement
         solver_u_snes.solve(None, u.vector)
 
-        # Solve damage
+        # Solve for damage
         solver_alpha_snes.solve(None, alpha.vector)
 
-        # check error and update
+        # Check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
         error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), op=MPI.SUM))
-        alpha.vector.copy(alpha_old.vector)
+        alpha_old.x.array[:] = alpha.x.array
 
         if monitor is not None:
             monitor(u, alpha, iteration, error_L2)
@@ -531,23 +533,13 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
 
 
 # + [markdown]
-# We reset the displacement and damage fields.
-# +
-u.x.array[:] = 0.0
-alpha.x.array[:] = 0.0
-alternate_minimization(u, alpha)
-plot_damage_state(u, alpha, load=load)
-
-
-# + [markdown]
 # ## Time-stepping: solving a quasi-static problem
 # +
-load0 = eps_c * L  # reference value for the loading (imposed displacement)
-loads = load0 * np.linspace(0, 1.5, 20)
+load_c = eps_c * L  # reference value for the loading (imposed displacement)
+loads = np.linspace(0, 1.5 * load_c, 20)
 
 # Array to store results
 energies = np.zeros((loads.shape[0], 3))
-
 
 for i_t, t in enumerate(loads):
     u_D.value = t
@@ -612,6 +604,7 @@ points_on_proc, alpha_val = evaluate_on_points(alpha, points)
 plt.plot(points_on_proc[:, 0], alpha_val, "k", linewidth=2, label="damage")
 plt.grid(True)
 plt.xlabel("x")
+plt.ylabel(r"damage $\alpha$")
 plt.legend()
 
 # If run in parallel as a Python file, we save a plot per processor
