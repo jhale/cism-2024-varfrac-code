@@ -34,12 +34,11 @@
 #    spherical parts, with each associated with a selective softening parameter.
 # 2. Following the previous tutorial, we solve for the problem state $(u_t,
 #    \alpha_t)$ in pseudo-time $t$ using the alternate minimisation algorithm with a
-#    pointwise bound constraint to ensure irreversibility $\dot{\alpha}_t \ge 0$.
+#    pointwise bound constraint to ensure irreversibility.
 # 3. To understand the stability of the equilibrium state we then solve an
 #    eigenvalue problem associated with the second-order state stability
 #    condition. An stationary state $(u_t, \alpha_t)$ is said to be stable if the
-#    second derivative (Hessian) of the energy on the active set (all variables
-#    except those where the damage constraint is active) is positive:
+#    reduced Hessian of the energy is positive:
 #
 #    $$
 #    \mathcal{E}^{''}(u, \alpha)(v, \beta) > 0, \quad \forall (v, \beta)
@@ -232,6 +231,7 @@ lmbda_reg = ell / ell_ch  # Regularisation length
 
 # + [markdown]
 # We print a summary of the important variables.
+# +
 print(f"lmbda_str: {lmbda_str}")
 print(f"lmbda_reg: {lmbda_reg}")
 print(f"t_peak: {t_peak}")
@@ -373,7 +373,6 @@ solver_alpha_snes.setFromOptions()
 
 
 def simple_monitor(u, alpha, iteration, error_L2):
-    # print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
     pass
 
 
