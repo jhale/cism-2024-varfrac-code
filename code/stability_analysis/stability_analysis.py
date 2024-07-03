@@ -37,7 +37,7 @@
 #    pointwise bound constraint to ensure irreversibility $\dot{\alpha}_t \ge 0$.
 # 3. To understand the stability of the equilibrium state we then solve an
 #    eigenvalue problem associated with the second-order state stability
-#    condition. An equilibrium state $(u_t, \alpha_t)$ is said to be stable if the
+#    condition. An stationary state $(u_t, \alpha_t)$ is said to be stable if the
 #    second derivative (Hessian) of the energy on the active set (all variables
 #    except those where the damage constraint is active) is positive:
 #
@@ -85,6 +85,8 @@ import ufl
 
 sys.path.append("../utils/")
 
+import matplotlib.pyplot as plt
+from inactive_set import inactive_damage_dofs
 from meshes import generate_bar_mesh
 from petsc_problems import SNESProblem
 from plots import plot_damage_state
@@ -164,15 +166,15 @@ dofs_ux_right = dolfinx.fem.locate_dofs_topological(
     V_u.sub(0), msh.topology.dim - 1, ft.find(fm["right"])
 )
 
-dofs_uy_left = dolfinx.fem.locate_dofs_topological(
-    V_u.sub(1), msh.topology.dim - 1, ft.find(fm["left"])
+dofs_uy_bottom = dolfinx.fem.locate_dofs_topological(
+    V_u.sub(1), msh.topology.dim - 1, ft.find(fm["bottom"])
 )
 
-ux_right = fem.Constant(msh, 0.0)
+u_D = fem.Constant(msh, 0.0)
 bcs_u = [
-    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_ux_left, V_u.sub(0)),
-    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_uy_left, V_u.sub(1)),
-    fem.dirichletbc(ux_right, dofs_ux_right, V_u.sub(0)),
+    fem.dirichletbc(0.0, dofs_ux_left, V_u.sub(0)),
+    fem.dirichletbc(0.0, dofs_uy_bottom, V_u.sub(1)),
+    fem.dirichletbc(u_D, dofs_ux_right, V_u.sub(0)),
 ]
 
 dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
@@ -184,11 +186,14 @@ dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
 )
 
 bcs_alpha = [
-    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_left, V_alpha),
-    fem.dirichletbc(fem.Constant(msh, 0.0), dofs_alpha_right, V_alpha),
+    fem.dirichletbc(0.0, dofs_alpha_left, V_alpha),
+    fem.dirichletbc(0.0, dofs_alpha_right, V_alpha),
 ]
 
 bcs_all = bcs_u + bcs_alpha
+
+dofs_alpha_all = np.concatenate([dofs_alpha_left, dofs_alpha_right])
+dofs_u_all = np.concatenate([dofs_ux_left, dofs_uy_bottom, dofs_ux_right])
 
 # + [markdown]
 # ## Variational formulation of the problem
@@ -224,9 +229,12 @@ ell_ch = gamma * np.pi * ell  # Cohesive zone length scale.
 # only.
 lmbda_str = Lx / ell_ch  # Structural length
 lmbda_reg = ell / ell_ch  # Regularisation length
-print(lmbda_str)
-print(lmbda_reg)
-print(t_peak)
+
+# + [markdown]
+# We print a summary of the important variables.
+print(f"lmbda_str: {lmbda_str}")
+print(f"lmbda_reg: {lmbda_reg}")
+print(f"t_peak: {t_peak}")
 
 # + [markdown]
 # The strain energy density of the S-LS constitutive model can be written as
@@ -276,7 +284,7 @@ def kappa(alpha):
     return kappa_0 * (1.0 - w(alpha)) / (1.0 + (gamma_kappa - 1.0) * w(alpha))
 
 
-def damage_dissipation_density(alpha):
+def dissipation_energy_density(alpha):
     w_1_ = dolfinx.fem.Constant(msh, w_1)
     ell_squared = dolfinx.fem.Constant(msh, ell * ell)
     return w_1_ * (w(alpha) + ell_squared * ufl.inner(ufl.grad(alpha), ufl.grad(alpha)))
@@ -295,7 +303,7 @@ def elastic_energy_density(eps, alpha):
 
 
 def total_energy(u, alpha):
-    return elastic_energy_density(eps(u), alpha) * dx + damage_dissipation_density(alpha) * dx
+    return elastic_energy_density(eps(u), alpha) * dx + dissipation_energy_density(alpha) * dx
 
 
 def sigma(eps, alpha):
@@ -308,8 +316,9 @@ energy = total_energy(u, alpha)
 
 # + [markdown]
 # ## Numerical solution for equilibrium
-# We use the same alternate minimisation algorithm as in the previous notebook
-# to solve at each pseudo-time step. We do not repeat the details here.
+# We will use the same alternate minimisation algorithm as in the previous
+# notebook to solve at each pseudo-time step. We do not repeat the details
+# here.
 # +
 E_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
@@ -393,7 +402,14 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
     raise RuntimeError(f"Could not converge after {max_iter} iterations, error {error_L2:3.4e}")
 
 
-# Define the fully coupled block problem for stability analysis
+# + [markdown]
+# ## Numerical solution for stability
+# DOLFINx has support for assembling block structured matrices and vectors into
+# PETSc's Block matrix types. This allows us to compose the full residual and
+# full Jacobian (Hessian) on the coupled $V_u \times V_alpha$ space from its
+# block sub-components.
+# +
+
 # Block residual
 F = [None for i in range(2)]
 F[0] = ufl.derivative(energy, u, ufl.TestFunction(V_u))
@@ -417,7 +433,13 @@ B_form = fem.form(B)
 A = fem.petsc.create_matrix_block(A_form)
 B = fem.petsc.create_matrix_block(B_form)
 
-# SLEPc solver
+# + [markdown]
+# SLEPc is a package for solving large-scale sparse eigenvalue problems. Here
+# we use a Krylov-Schur algorithm with shift-and-invert (`sinvert`) to
+# accelerate the convergence of the spectrum to the eigenvalues around -0.1.
+# This shift-and-invert acceleration involves the solution of a linear system
+# which we again perform with LU decomposition.
+# +
 stability_solver = SLEPc.EPS().create()
 stability_solver.setOptionsPrefix("stability_")
 
@@ -428,25 +450,30 @@ opts["stability_st_type"] = "sinvert"
 opts["stability_st_shift"] = -0.1
 opts["stability_eps_tol"] = 1e-7
 opts["stability_st_ksp_type"] = "preonly"
-opts["stability_st_pc_type"] = "cholesky"
+opts["stability_st_pc_type"] = "lu"
 opts["stability_st_pc_factor_mat_solver_type"] = "mumps"
 opts["stability_st_mat_mumps_icntl_24"] = 1
 stability_solver.setFromOptions()
 
-# Extend to 2*t_peak
-loads = np.linspace(0.0, 2 * t_peak, 20)
+ts = np.linspace(0.0, 2.3 * t_peak, 30)
 
+# Array to store results
+energies = np.zeros((ts.shape[0], 3))
+eigenvalues = np.zeros((ts.shape[0], 2))
 
-for i_t, load in enumerate(loads):
-    ux_right.value = load
+# + [markdown]
+# Now we begin the pseudo-time stepping loop. We first solve for the
+# +
+for i_t, t in enumerate(ts):
+    u_D.value = energies[i_t, 0] = eigenvalues[i_t, 0] = t
 
-    print(f"-- Solving for load = {load:3.2f} --")
+    print(f"-- Solving for load = {t:3.2f} --")
 
     # Update the lower bound to ensure irreversibility of damage field.
     alpha_lb.x.array[:] = alpha.x.array
     alpha_lb.x.scatter_forward()
     alternate_minimization(u, alpha)
-    plot_damage_state(u, alpha, load=load)
+    plot_damage_state(u, alpha, load=t)
 
     # Assemble operators on union of active (damaged) and inactive (undamaged)
     # sets.
@@ -458,17 +485,15 @@ for i_t, load in enumerate(loads):
     fem.petsc.assemble_matrix_block(B, B_form)
     B.assemble()
 
-    # Get inactive sets.
-    u_inactive_set = np.arange(0, V_u.dofmap.index_map.size_local, dtype=np.int32)
-    dirichlet_u = np.concatenate([dofs_ux_left, dofs_uy_left, dofs_ux_right])
-    u_restrict = np.setdiff1d(u_inactive_set, dirichlet_u)
-    # Get inactive sets.
-    alpha_inactive_set = solver_alpha_snes.getVIInactiveSet().array
-    # NOTE: This always returns nothing!
-    print(alpha_inactive_set.shape)
-    dirichlet_alpha = np.concatenate([dofs_alpha_left, dofs_alpha_right])
-    alpha_restrict = np.setdiff1d(alpha_inactive_set, dirichlet_alpha)
-    # Remove displacement degrees of freedom from inactive set.
+    # Construct inactive set on displacement.
+    u_inactive_set = np.arange(
+        0, V_u.dofmap.index_map_bs * V_u.dofmap.index_map.size_local, dtype=np.int32
+    )
+    u_restrict = np.setdiff1d(u_inactive_set, dofs_u_all)
+
+    # Construct inactive set on damage.
+    alpha_inactive_set = inactive_damage_dofs(alpha, alpha_lb, b_alpha)
+    alpha_restrict = np.setdiff1d(alpha_inactive_set, dofs_alpha_all)
 
     restriction = Restriction([V_u, V_alpha], [u_restrict, alpha_restrict])
 
@@ -480,8 +505,46 @@ for i_t, load in enumerate(loads):
     stability_solver.solve()
 
     num_converged = stability_solver.getConverged()
+    assert num_converged > 1
 
-    print(num_converged)
+    # Store first eigenvalue
+    eigenvalues[i_t, 1] = stability_solver.getEigenvalue(0).real
 
-    for i in range(0, num_converged):
-        print(stability_solver.getEigenvalue(i))
+    # Calculate the energies
+    energies[i_t, 1] = comm.allreduce(
+        dolfinx.fem.assemble_scalar(dolfinx.fem.form(elastic_energy_density(eps(u), alpha) * dx)),
+        op=MPI.SUM,
+    )
+    energies[i_t, 2] = comm.allreduce(
+        dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipation_energy_density(alpha) * dx)),
+        op=MPI.SUM,
+    )
+
+# + [markdown]
+# ## Verification
+#
+# Let's check the total, elastic and dissipated energies visually.
+# +
+(p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
+(p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
+(p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
+plt.legend()
+
+plt.xlabel("Displacement")
+plt.ylabel("Energy")
+
+plt.savefig("output/energies.png")
+plt.show()
+
+# + [markdown]
+# Let's take a look at the evolution of the first eigenvalue of the reduced
+# Hessian. We can see a sudden reduction in the eigenvalues just after the
+# onset of damage. All eigenvalues are positive, and consequently all states
+# found are stable according to the criteria.
+# +
+fig = plt.plot(eigenvalues[:, 0], eigenvalues[:, 1], "go", label="Eigenvalues")
+plt.xlabel("Displacement")
+plt.ylabel(r"$\lambda_0$")
+
+plt.savefig("output/eigenvalues.png")
+plt.show()
