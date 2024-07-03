@@ -156,10 +156,8 @@ V_alpha = fem.functionspace(msh, element_alpha)
 u = fem.Function(V_u, name="displacement")
 alpha = fem.Function(V_alpha, name="damage")
 
-
 # Domain measure.
 dx = ufl.Measure("dx", domain=msh)
-
 
 # + [markdown]
 # ### Boundary conditions
@@ -211,7 +209,7 @@ bottom_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, bottom_f
 # Using `fem.Constant` will allow us to update the value of the boundary
 # condition applied in the pseudo-time loop.
 # +
-u_D = fem.Constant(msh, PETSc.ScalarType(0.5))
+u_D = fem.Constant(msh, 0.5)
 bc_ux_left = fem.dirichletbc(0.0, left_boundary_dofs_ux, V_u.sub(0))
 bc_ux_right = fem.dirichletbc(u_D, right_boundary_dofs_ux, V_u.sub(0))
 bc_uy_bottom = fem.dirichletbc(0.0, bottom_boundary_dofs_uy, V_u.sub(1))
