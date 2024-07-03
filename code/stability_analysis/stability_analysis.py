@@ -494,9 +494,8 @@ for i_t, t in enumerate(ts):
     alpha_lb.x.scatter_forward()
     alternate_minimization(u, alpha)
     plot_damage_state(u, alpha, load=t)
-
-    # Assemble operators on union of active (damaged) and inactive (undamaged)
-    # sets.
+    
+    # Assemble operators on the entire space, then restrict.
     A.zeroEntries()
     fem.petsc.assemble_matrix_block(A, A_form)
     A.assemble()
