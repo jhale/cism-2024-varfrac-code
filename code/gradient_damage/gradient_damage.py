@@ -159,6 +159,7 @@ alpha = fem.Function(V_alpha, name="damage")
 # Domain measure.
 dx = ufl.Measure("dx", domain=msh)
 
+
 # + [markdown]
 # ### Boundary conditions
 # We impose Dirichlet boundary conditions on the displacement and the damage
