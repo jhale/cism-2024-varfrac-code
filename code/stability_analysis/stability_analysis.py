@@ -406,8 +406,8 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 # ## Numerical solution for stability
 # DOLFINx has support for assembling block structured matrices and vectors into
 # PETSc's Block matrix types. This allows us to compose the full residual and
-# full Jacobian (Hessian) on the coupled $V_u \times V_alpha$ space from its
-# block sub-components.
+# full Jacobian (Hessian) on the coupled $V_u \times V_\alpha$ space from their
+# sub-components.
 # +
 
 # Block residual
@@ -462,7 +462,27 @@ energies = np.zeros((ts.shape[0], 3))
 eigenvalues = np.zeros((ts.shape[0], 2))
 
 # + [markdown]
-# Now we begin the pseudo-time stepping loop. We first solve for the
+# Now we begin the pseudo-time stepping loop. We first solve for the stationary
+# state using alternate minimisation. We then assemble the Hessian and the mass
+# matrix on the entire space, before restricting it to the space
+# $\mathcal{D}_0^+$. This is done at the linear algebra level by:
+#
+# 1. Finding the inactive set for the displacements $u$. As there is no bound
+#    constraint on $u$ this is *all* of the degrees of freedom associated with
+#    $u$.
+# 2. Removing from the set produced in 1. all degrees of freedom associated
+#    with the Dirichlet boundary conditions on $u$.
+# 3. Finding the inactive set for the damage $\alpha$. Note that PETSc contains
+#    a method for finding this set, but it does not currently appear to be
+#    working, so we have written a method `inactive_damage_dofs` that finds this
+#    set according to the definition for $\mathcal{I}(x)$ found in the previous
+#    notebook.
+# 4. Removing from the set produced in 3. all degrees of freedom associated
+#    with Dirichlet boundary conditions on $\alpha$.
+#
+# We then use the `Restriction` class from `dolfiny` to take the matrices on
+# the full space and keep only the rows and columns associated with the sets of
+# degrees of freedom defined in 2. and 4.
 # +
 for i_t, t in enumerate(ts):
     u_D.value = energies[i_t, 0] = eigenvalues[i_t, 0] = t
