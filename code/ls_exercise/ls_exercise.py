@@ -19,8 +19,14 @@
 # - Jack S. Hale (University of Luxembourg)
 # - Corrado Maurini (Sorbonne Université)
 #
-# This notebook contains a slightly modified version of the gradient damage
-# tutorial. Modify it so that it expresses the LS model.
+# This notebook contains a slightly modified version of the AT1 gradient damage
+# tutorial. Modify it so that it expresses the LS model using the 3rd
+# parameterisation of Table 1 and case b) the intermediate-length bar in Figure
+# 7:
+#
+# - Stability and crack nucleation in variational phase-field models of
+# fracture: effects of length-scales and stress multi-axiality. Zolesi and
+# Maurini 2024. Preprint. https://hal.sorbonne-universite.fr/hal-04552309
 #
 # ## Preamble
 #
