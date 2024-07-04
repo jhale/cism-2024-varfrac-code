@@ -135,7 +135,6 @@ fdim = msh.topology.dim - 1
 
 left_facets = mesh.locate_entities_boundary(msh, fdim, left)
 right_facets = mesh.locate_entities_boundary(msh, fdim, right)
-bottom_facets = mesh.locate_entities_boundary(msh, fdim, bottom)
 
 # + [markdown]
 # The function `fem.locate_dofs_topological` calculates the indices of the
@@ -144,7 +143,6 @@ bottom_facets = mesh.locate_entities_boundary(msh, fdim, bottom)
 # +
 left_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, left_facets)
 right_boundary_dofs_ux = fem.locate_dofs_topological(V_u.sub(0), fdim, right_facets)
-bottom_boundary_dofs_uy = fem.locate_dofs_topological(V_u.sub(1), fdim, bottom_facets)
 
 # + [markdown]
 # Using `fem.Constant` will allow us to update the value of the boundary
@@ -164,6 +162,7 @@ bcs_u = [
 # +
 left_boundary_dofs_alpha = fem.locate_dofs_topological(V_alpha, fdim, left_facets)
 right_boundary_dofs_alpha = fem.locate_dofs_topological(V_alpha, fdim, right_facets)
+
 bc_alpha_left = fem.dirichletbc(0.0, left_boundary_dofs_alpha, V_alpha)
 bc_alpha_right = fem.dirichletbc(0.0, right_boundary_dofs_alpha, V_alpha)
 
