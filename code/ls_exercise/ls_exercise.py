@@ -12,24 +12,19 @@
 #     name: python3
 # ---
 
-# # Exercise: Implement the S-LS model from the AT1 state
+# + [markdown]
+# # Exercise: Implement the LS model from the AT1 state
 #
 # *Authors:*
 # - Jack S. Hale (University of Luxembourg)
 # - Corrado Maurini (Sorbonne Université)
 #
-# This notebook contains a slightly modified
+# This notebook contains a slightly modified version of the gradient damage
+# tutorial. Modify it so that it expresses the LS model.
 #
-## Preamble
+# ## Preamble
 #
 # We begin by importing the required Python modules.
-#
-# The container images built by the FEniCS Project do not have the `sympy`
-# module so we install it using pip using the Jupyterbook terminal.
-#
-# You can install sympy in your JupyterLab by opening a Terminal and running:
-#
-#     pip install sympy
 #
 # +
 import sys
@@ -49,7 +44,6 @@ from dolfinx import fem, io, la, mesh, plot
 sys.path.append("../utils/")
 
 import pyvista
-import sympy
 from evaluate_on_points import evaluate_on_points
 from petsc_problems import SNESProblem
 from plots import plot_damage_state
@@ -109,6 +103,7 @@ alpha = fem.Function(V_alpha, name="damage")
 # Domain measure.
 dx = ufl.Measure("dx", domain=msh)
 
+
 # + [markdown]
 # ### Boundary conditions
 # We impose Dirichlet boundary conditions on the displacement and the damage
@@ -122,10 +117,6 @@ dx = ufl.Measure("dx", domain=msh)
 # +
 def bottom(x):
     return np.isclose(x[1], 0.0)
-
-
-def top(x):
-    return np.isclose(x[1], H)
 
 
 def right(x):
@@ -192,7 +183,8 @@ E, nu = (
 )
 Gc = fem.Constant(msh, dolfinx.default_scalar_type(1.0))
 ell = fem.Constant(msh, dolfinx.default_scalar_type(ell_))
-c_w = fem.Constant(msh, dolfinx.default_scalar_type(3.0/8.0)) 
+c_w = fem.Constant(msh, dolfinx.default_scalar_type(8.0 / 3.0))
+eps_c = 0.19364936095953816
 
 def w(alpha):
     """Dissipated energy function as a function of the damage"""
@@ -220,12 +212,15 @@ def sigma(eps, alpha):
     """Stress tensor of the damaged material as a function of the displacement and the damage"""
     return a(alpha) * sigma_0(eps)
 
+
+# + [markdown]
 # ### Energy functional and its derivatives
 #
 # We use the `ufl` package of FEniCS to define the energy functional. The
 # residual (first Gateaux derivative of the energy functional) and Jacobian
 # (second Gateaux derivative of the energy functional) can then be derived
 # through automatic symbolic differentiation using `ufl.derivative`.
+# +
 f = fem.Constant(msh, PETSc.ScalarType((0.0, 0.0)))
 elastic_energy = 0.5 * ufl.inner(sigma(eps(u), alpha), eps(u)) * dx
 dissipated_energy = (
@@ -269,13 +264,6 @@ solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_u_snes.getKSP().getPC().setType("lu")
 
-# We test the solution of the elasticity problem
-load = 1.0
-u_D.value = load
-u.x.array[:] = 0.0
-solver_u_snes.solve(None, u.vector)
-plot_damage_state(u, alpha, load=load)
-
 # + [markdown]
 # ### Damage problem with bound-constraint
 #
@@ -316,21 +304,6 @@ alpha_ub.x.array[:] = 1.0
 solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 
 # + [markdown]
-# ### Solver description
-#
-# A full description of the reduced space active set Newton solver
-# (`vinewtonrsls`) can be found in:
-#
-# - Benson, S. J., Munson, T. S. (2004). Flexible complimentarity solvers for
-#   large-scale applications. Optimization Methods and Software.
-#   https://doi.org/10.1080/10556780500065382
-#
-# Let us now test the solution of the damage problem
-# +
-solver_alpha_snes.solve(None, alpha.vector)
-plot_damage_state(u, alpha, load=load)
-
-# + [markdown]
 # Before continuing we reset the displacement and damage to zero.
 # +
 alpha.x.array[:] = 0.0
@@ -349,6 +322,7 @@ u.x.array[:] = 0.0
 # $L^2$ norm of the difference between the damage field at the current iterate
 # and the previous iterate.
 # +
+
 
 def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
@@ -379,6 +353,7 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
     raise RuntimeError(
         f"Could not converge after {max_iterations} iterations, error {error_L2:3.4e}"
     )
+
 
 # + [markdown]
 # ## Time-stepping: solving a quasi-static problem
@@ -417,8 +392,8 @@ for i_t, t in enumerate(loads):
     with io.XDMFFile(comm, file_name, "a", encoding=io.XDMFFile.Encoding.HDF5) as file:
         file.write_function(u, t)
         file.write_function(alpha, t)
-# -
 
+# + [markdown]
 # We now plot the total, elastic and dissipated energies throughout the
 # pseudo-time evolution against the applied displacement.
 # +
@@ -427,15 +402,15 @@ for i_t, t in enumerate(loads):
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
 plt.legend()
 
-#plt.axvline(x=eps_c * L, color="grey", linestyle="--", linewidth=2)
-#plt.axhline(y=H, color="grey", linestyle="--", linewidth=2)
+# plt.axvline(x=eps_c * L, color="grey", linestyle="--", linewidth=2)
+# plt.axhline(y=H, color="grey", linestyle="--", linewidth=2)
 
 plt.xlabel("Displacement")
 plt.ylabel("Energy")
 
 plt.savefig("output/energies.png")
-# -
 
+# + [markdown]
 # ## Verification
 #
 # The plots above indicates that the crack appears at the elastic limit
@@ -448,6 +423,7 @@ surface_energy_value = comm.allreduce(
 print(f"The numerical dissipated energy on the crack is {surface_energy_value:.3f}")
 print(f"The expected analytical value is {H:.3f}")
 
+# + [markdown]
 # Let's take a look at the damage profile and verify that we acheive the
 # expected solution for the AT1 model. We can easily see that the solution
 # is bounded between $0$ and $1$ and that the decay to zero of the damage profile
@@ -464,8 +440,8 @@ points[:, 1] = H / 2.0
 fig = plt.figure()
 points_on_proc, alpha_val = evaluate_on_points(alpha, points)
 plt.plot(points_on_proc[:, 0], alpha_val, "k", linewidth=2, label="damage")
-#plt.axvline(x=0.5 - D, color="grey", linestyle="--", linewidth=2)
-#plt.axvline(x=0.5 + D, color="grey", linestyle="--", linewidth=2)
+# plt.axvline(x=0.5 - D, color="grey", linestyle="--", linewidth=2)
+# plt.axvline(x=0.5 + D, color="grey", linestyle="--", linewidth=2)
 plt.grid(True)
 plt.xlabel("x")
 plt.ylabel(r"damage $\alpha$")
@@ -473,4 +449,3 @@ plt.legend()
 
 # If run in parallel as a Python file, we save a plot per processor
 plt.savefig(f"output/damage_line_rank_{MPI.COMM_WORLD.rank:d}.png")
-# -
