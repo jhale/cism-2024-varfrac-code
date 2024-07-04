@@ -13,7 +13,7 @@
 # ---
 
 # + [markdown]
-# # Exercise: Implement the LS model from the AT1 state
+# # Solution: Implement the LS model from the AT1 state
 #
 # *Authors:*
 # - Jack S. Hale (University of Luxembourg)
@@ -186,17 +186,19 @@ Gc = fem.Constant(msh, dolfinx.default_scalar_type(1.0))
 ell = fem.Constant(msh, dolfinx.default_scalar_type(ell_))
 c_w = fem.Constant(msh, dolfinx.default_scalar_type(np.pi))
 gamma = 2.0
-sigma_c = np.sqrt((2.0*Gc.value*E.value)/(np.pi*ell.value*gamma))
-eps_c = sigma_c/E.value
+sigma_c = np.sqrt((2.0 * Gc.value * E.value) / (np.pi * ell.value * gamma))
+eps_c = sigma_c / E.value
+
 
 def w(alpha):
     """Dissipated energy function as a function of the damage"""
-    return 1.0 - (1.0 - alpha)**2
+    return 1.0 - (1.0 - alpha) ** 2
 
 
 def a(alpha, k_ell=1.0e-6):
     """Stiffness modulation as a function of the damage"""
-    return (1 - w(alpha))/(1.0 + (gamma - 1.0)*w(alpha))
+    return (1 - w(alpha)) / (1.0 + (gamma - 1.0) * w(alpha))
+
 
 def eps(u):
     """Strain tensor as a function of the displacement"""
@@ -379,8 +381,8 @@ for i_t, t in enumerate(loads):
     alpha_lb.x.array[:] = alpha.x.array
 
     print(f"-- Solving for t = {t:3.2f} --")
-    alternate_minimization(u, alpha)
-    plot_damage_state(u, alpha, atol=1E-4)
+    alternate_minimization(u, alpha, atol=1e-4)
+    plot_damage_state(u, alpha)
 
     # Calculate the energies
     energies[i_t, 1] = comm.allreduce(
@@ -415,18 +417,6 @@ plt.savefig("output/energies.png")
 # + [markdown]
 # ## Verification
 #
-# The plots above indicates that the crack appears at the elastic limit
-# calculated analytically (see the gridlines) and that the dissipated energy
-# coincides with the length of the crack times the fracture toughness $G_c$.
-# Let's check the dissipated energy explicity.
-# +
-surface_energy_value = comm.allreduce(
-    dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)), op=MPI.SUM
-)
-print(f"The numerical dissipated energy on the crack is {surface_energy_value:.3f}")
-print(f"The expected analytical value is {H:.3f}")
-
-# + [markdown]
 # Let's take a look at the damage profile and verify that we acheive the
 # expected solution for the AT1 model. We can easily see that the solution
 # is bounded between $0$ and $1$ and that the decay to zero of the damage profile
