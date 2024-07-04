@@ -418,6 +418,7 @@ plt.savefig("output/energies.png")
 # calculated analytically (see the gridlines) and that the dissipated energy
 # coincides with the length of the crack times the fracture toughness $G_c$.
 # Let's check the dissipated energy explicity.
+# +
 surface_energy_value = comm.allreduce(
     dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipated_energy)), op=MPI.SUM
 )
