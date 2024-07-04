@@ -62,8 +62,8 @@
 # \Omega = [0,L] \times [0,H],
 # $
 # and the problem is displacement controlled by setting the displacement
-# $u=(t,0)$ on the right end, and the left end is fully clamped $u=(0,0)$.
-# Damage is set to be zero on the left and right ends.
+# $u_x=t$ on the right end, and on the left end $u_x = 0$. On the bottom
+# boundary we set $u_y = 0$. Damage is set at zero on the left and right ends.
 #
 # You can find further information about this model in:
 # - Marigo, J.-J., Maurini, C., & Pham, K. (2016). An overview of the modelling
@@ -162,8 +162,8 @@ dx = ufl.Measure("dx", domain=msh)
 
 # + [markdown]
 # ### Boundary conditions
-# We impose Dirichlet boundary conditions on the displacement and the damage
-# field on the appropriate parts of the boundary.
+# We impose Dirichlet boundary conditions on components of the displacement and
+# the damage field on the appropriate parts of the boundary.
 #
 # We do this using predicates. DOLFINx will pass an array of the midpoints of
 # all facets (edges) as an argument `x` with shape `(3, num_edges)` to our
