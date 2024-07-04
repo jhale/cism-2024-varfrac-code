@@ -149,8 +149,8 @@ ds = ufl.Measure("ds", domain=msh)
 
 # + [markdown]
 # ### Boundary conditions
-# We impose Dirichlet boundary conditions on the displacement and the damage
-# field on the appropriate parts of the boundary.
+# We impose Dirichlet boundary conditions on components of the displacement and
+# the damage field on the appropriate parts of the boundary.
 #
 # In the previous example we use predicates to locate the facets on the
 # boundary. An alternative approach is to directly use the facet tags `fm`
@@ -316,6 +316,7 @@ energy = total_energy(u, alpha)
 
 # + [markdown]
 # ## Numerical solution for equilibrium
+#
 # We will use the same alternate minimisation algorithm as in the previous
 # notebook to solve at each pseudo-time step. We do not repeat the details
 # here.
@@ -403,10 +404,19 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 
 # + [markdown]
 # ## Numerical solution for stability
+#
 # DOLFINx has support for assembling block structured matrices and vectors into
-# PETSc's Block matrix types. This allows us to compose the full residual and
-# full Jacobian (Hessian) on the coupled $V_u \times V_\alpha$ space from their
-# sub-components.
+# PETSc Block structured linear algebra objects. This allows us to compose the
+# full residual and full Jacobian (Hessian) on from its sub-components.
+#
+# $$
+# F = \begin{bmatrix} F_u & F_{\alpha} \end{bmatrix}
+# $$
+#
+# $$
+# J = \begin{bmatrix} J_{uu} && J_{u\alpha} \\ J_{\alpha u} && J_{\alpha \alpha} \end{bmatrix}
+# $$
+#
 # +
 
 # Block residual
