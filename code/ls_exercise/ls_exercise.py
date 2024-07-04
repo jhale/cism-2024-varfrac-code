@@ -186,6 +186,7 @@ ell = fem.Constant(msh, dolfinx.default_scalar_type(ell_))
 c_w = fem.Constant(msh, dolfinx.default_scalar_type(8.0 / 3.0))
 eps_c = 0.19364936095953816
 
+
 def w(alpha):
     """Dissipated energy function as a function of the damage"""
     return alpha
