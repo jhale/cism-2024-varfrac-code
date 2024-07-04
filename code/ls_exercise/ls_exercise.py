@@ -115,10 +115,6 @@ dx = ufl.Measure("dx", domain=msh)
 # `(num_edges)` containing `True` if the edge is on the desired boundary, and
 # `False` if not.
 # +
-def bottom(x):
-    return np.isclose(x[1], 0.0)
-
-
 def right(x):
     return np.isclose(x[0], L)
 
