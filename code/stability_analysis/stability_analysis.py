@@ -406,15 +406,19 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 # ## Numerical solution for stability
 #
 # DOLFINx has support for assembling block structured matrices and vectors into
-# PETSc Block structured linear algebra objects. This allows us to compose the
+# PETSc block structured linear algebra objects. This allows us to compose the
 # full residual and full Jacobian (Hessian) on from its sub-components.
 #
 # $$
-# F = \begin{bmatrix} F_u & F_{\alpha} \end{bmatrix}
+# F = \begin{bmatrix} F_u \\ F_{\alpha} \end{bmatrix}
 # $$
 #
 # $$
-# J = \begin{bmatrix} J_{uu} && J_{u\alpha} \\ J_{\alpha u} && J_{\alpha \alpha} \end{bmatrix}
+# A = \begin{bmatrix} A_{uu} && A_{u \alpha} \\ A_{\alpha u} && A_{\alpha \alpha} \end{bmatrix}
+# $$
+#
+# $$
+# M = \begin{bmatrix} M_{uu} && 0 \\ 0 && M_{\alpha\alpha} \end{bmatrix}
 # $$
 #
 # +
