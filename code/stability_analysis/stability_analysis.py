@@ -418,7 +418,7 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 # $$
 #
 # $$
-# M = \begin{bmatrix} M_{uu} && 0 \\ 0 && M_{\alpha\alpha} \end{bmatrix}
+# B = \begin{bmatrix} B_{uu} && 0 \\ 0 && B_{\alpha\alpha} \end{bmatrix}
 # $$
 #
 # +
