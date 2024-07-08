@@ -21,33 +21,40 @@
 #
 # In this notebook we implement a stability analysis on a selective
 # linear-softening (S-LS) gradient damage model. For a full overview of the
-# theoretical aspects we refer the reader to:
+# theoretical aspects of the damage model we refer the reader to:
 #
 # - Stability and crack nucleation in variational phase-field models of
 # fracture: effects of length-scales and stress multi-axiality. Zolesi and
 # Maurini 2024. Preprint. https://hal.sorbonne-universite.fr/hal-04552309
+#
+# and for the numerical stability analysis to:
+#
+# - Numerical bifurcation and stability analysis of variational gradient-damage
+# models for phase-field fracture, León Baldelli and Maurini, Journal of the
+# Mechanics and Physics of Solids, 2021. https://hal.science/hal-03106368v2
 #
 # The essence of the approach is as follows:
 #
 # 1. We define a S-LS gradient damage model via its energy functional
 #    $\mathcal{E}$ with a split of the elastic energy into deviatoric and
 #    spherical parts, with each associated with a selective softening parameter.
+#
 # 2. Following the previous tutorial, we solve for the problem state $(u_t,
 #    \alpha_t)$ in pseudo-time $t$ using the alternate minimisation algorithm with a
 #    pointwise bound constraint to ensure irreversibility.
+#
 # 3. To understand the stability of the equilibrium state we then solve an
 #    eigenvalue problem associated with the second-order state stability
-#    condition. An stationary state $(u_t, \alpha_t)$ is said to be stable if the
-#    reduced Hessian of the energy is positive:
+#    condition. An stationary state $(u_t, \alpha_t)$ is said to be incrementally
+#    stable if the reduced Hessian of the energy is positive:
 #
 #    $$
 #    \mathcal{E}^{''}(u, \alpha)(v, \beta) > 0, \quad \forall (v, \beta)
-#    \in \mathcal{C}_0 \times \mathcal{D}^{+}_0,
+#    \in \mathcal{N}_0,
 #    $$
 #
-#    where $\mathcal{C}_0$ is the space of displacements with vanishing value
-#    on the boundary and $\mathcal{D}_0^+$ the damage field with vanishing value
-#    on the boundary and with damage $\alpha \ge 0$.
+#    where $\mathcal{N}_0$ is the space of admissable displacements and damages where
+#    the constraints are not strongly active.
 #
 # The numerical aspects of solving this problem will be discussed below.
 #
@@ -145,7 +152,7 @@ alpha_ub = dolfinx.fem.Function(V_alpha, name="upper bound")
 alpha_ub.x.array[:] = 1.0
 
 dx = ufl.Measure("dx", domain=msh)
-ds = ufl.Measure("ds", domain=msh)
+ds = ufl.Measure("ds", domain=msh, subdomain_data=ft)
 
 # + [markdown]
 # ### Boundary conditions
@@ -175,6 +182,7 @@ bcs_u = [
     fem.dirichletbc(0.0, dofs_uy_bottom, V_u.sub(1)),
     fem.dirichletbc(u_D, dofs_ux_right, V_u.sub(0)),
 ]
+dofs_u_all = np.concatenate([dofs_ux_left, dofs_uy_bottom, dofs_ux_right])
 
 dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
     V_alpha, msh.topology.dim - 1, ft.find(fm["left"])
@@ -184,15 +192,18 @@ dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
     V_alpha, msh.topology.dim - 1, ft.find(fm["right"])
 )
 
+# Case 1: Dirichlet condition on left and right ends
 bcs_alpha = [
     fem.dirichletbc(0.0, dofs_alpha_left, V_alpha),
     fem.dirichletbc(0.0, dofs_alpha_right, V_alpha),
 ]
+dofs_alpha_all = np.concatenate([dofs_alpha_left, dofs_alpha_right])
+
+# Case 2: Neumann condition on left and right ends
+# bcs_alpha = []
+# dofs_alpha_all = np.array([], dtype=np.int32)
 
 bcs_all = bcs_u + bcs_alpha
-
-dofs_alpha_all = np.concatenate([dofs_alpha_left, dofs_alpha_right])
-dofs_u_all = np.concatenate([dofs_ux_left, dofs_uy_bottom, dofs_ux_right])
 
 # + [markdown]
 # ## Variational formulation of the problem
@@ -247,8 +258,11 @@ print(f"t_peak: {t_peak}")
 #
 # where $\varepsilon$ is the usual small strain tensor as a function of the
 # displacements $u$, $\mathrm{tr}$ is the trace operator, $\mathrm{dev}$ takes
-# the deviatoric part of a tensor, and $alpha$ is the damage field. The
-# dissipation function is
+# the deviatoric part of a tensor, and $\alpha$ is the damage field.
+# Here we do not consider any distinction of the elastic energy in positive and
+# negative part, focusing on the case of traction-like loading.
+#
+# The dissipation function is
 #
 # $$
 # w(\alpha) := 1 - (1 - \alpha^2),
@@ -264,7 +278,8 @@ print(f"t_peak: {t_peak}")
 # \mu(\alpha) := \frac{1 - w(\alpha)}{1 + (\gamma_{\mu} - 1) w (\alpha)} \mu_0.
 # $$
 #
-# Note that in this example we set $\gamma_\kappa = \gamma_\mu$.
+# Note that in this example we set $\gamma_\kappa = \gamma_\mu$, i.e. we do not
+# selectively soften.
 # +
 
 
@@ -473,12 +488,14 @@ ts = np.linspace(0.0, 2.3 * t_peak, 30)
 # Array to store results
 energies = np.zeros((ts.shape[0], 3))
 eigenvalues = np.zeros((ts.shape[0], 2))
+forces = np.zeros((ts.shape[0], 1))
 
 # + [markdown]
 # Now we begin the pseudo-time stepping loop. We first solve for the stationary
 # state using alternate minimisation. We then assemble the Hessian and the mass
 # matrix on the entire space, before restricting it to the space
-# $\mathcal{D}_0^+$. This is done at the linear algebra level by:
+# $\mathcal{N}_0$ of not-strongly-active constraints. This is done at the
+# linear algebra level by:
 #
 # 1. Finding the inactive set for the displacements $u$. As there is no bound
 #    constraint on $u$ this is *all* of the degrees of freedom associated with
@@ -497,6 +514,13 @@ eigenvalues = np.zeros((ts.shape[0], 2))
 # the full space and keep only the rows and columns associated with the sets of
 # degrees of freedom defined in 2. and 4.
 # +
+elastic_energy_form = dolfinx.fem.form(elastic_energy_density(eps(u), alpha) * dx)
+dissipation_energy_form = dolfinx.fem.form(dissipation_energy_density(alpha) * dx)
+force_form = dolfinx.fem.form(sigma(eps(u), alpha)[0, 0] * ds(fm["right"]))
+
+u.x.array[:] = 0.0
+alpha.x.array[:] = 0.0
+
 for i_t, t in enumerate(ts):
     u_D.value = energies[i_t, 0] = eigenvalues[i_t, 0] = t
 
@@ -544,11 +568,17 @@ for i_t, t in enumerate(ts):
 
     # Calculate the energies
     energies[i_t, 1] = comm.allreduce(
-        dolfinx.fem.assemble_scalar(dolfinx.fem.form(elastic_energy_density(eps(u), alpha) * dx)),
+        dolfinx.fem.assemble_scalar(elastic_energy_form),
         op=MPI.SUM,
     )
     energies[i_t, 2] = comm.allreduce(
-        dolfinx.fem.assemble_scalar(dolfinx.fem.form(dissipation_energy_density(alpha) * dx)),
+        dolfinx.fem.assemble_scalar(dissipation_energy_form),
+        op=MPI.SUM,
+    )
+
+    # Calculate the global force
+    forces[i_t] = comm.allreduce(
+        dolfinx.fem.assemble_scalar(force_form),
         op=MPI.SUM,
     )
 
@@ -579,4 +609,18 @@ plt.xlabel("Displacement")
 plt.ylabel(r"$\lambda_0$")
 
 plt.savefig("output/eigenvalues.png")
+plt.show()
+
+# + [markdown]
+# We can also plot also the force displacement diagram and color each point in
+# green if stable or red if unstable.
+# +
+for i, eigenvalue in enumerate(eigenvalues):
+    color = "green" if eigenvalue[1] > 0.0 else "red"
+    plt.scatter(ts[i], forces[i], marker="o", color=color)
+
+plt.xlabel("Displacement")
+plt.ylabel("Force")
+
+plt.savefig("output/force.png")
 plt.show()
