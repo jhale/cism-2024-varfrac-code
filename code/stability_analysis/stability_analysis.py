@@ -265,7 +265,7 @@ print(f"t_peak: {t_peak}")
 # The dissipation function is
 #
 # $$
-# w(\alpha) := 1 - (1 - \alpha^2),
+# w(\alpha) := 1 - (1 - \alpha)^2,
 # $$
 #
 # and spherical and deviatoric degradation functions are
