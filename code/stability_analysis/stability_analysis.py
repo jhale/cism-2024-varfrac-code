@@ -399,6 +399,8 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
     for iteration in range(max_iter):
         # Solve displacement
         solver_u_snes.solve(None, u.vector)
+        # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
+        u.x.scatter_forward()
 
         # Solve damage
         solver_alpha_snes.solve(None, alpha.vector)
