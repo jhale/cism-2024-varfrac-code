@@ -157,7 +157,9 @@ To build this Jupyter book run:
 
     docker run -v $(pwd):/shared -w /shared -ti --entrypoint /bin/bash dolfinx/lab:v0.9.0r1 
     pip install -r requirements-docs.txt
-    jupyter-book build .
+    export PYVISTA_OFF_SCREEN=true
+    export PYVISTA_JUPYTER_BACKEND=html
+    jupyter-book build -W .
 
 and then on the host:
 

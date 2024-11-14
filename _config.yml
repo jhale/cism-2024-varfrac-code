@@ -3,7 +3,6 @@
 
 title: CISM Variational Fracture with FEniCSx
 author: Jack S. Hale, Laura de Lorenzis, Corrado Maurini
-logo: images/logo.png
 only_build_toc_files: true
 
 # Force re-execution of notebooks on each build.

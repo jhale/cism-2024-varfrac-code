@@ -31,7 +31,7 @@ jobs:
           ruff format --check .
 
       - name: Build book
-        run: PYVISTA_OFF_SCREEN=false jupyter book build .
+        run: jupyter book build -W .
       
       - name: Upload documentation as artifact
         uses: actions/upload-artifact@v4
