@@ -25,7 +25,7 @@ jobs:
       
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y libgl1-mesa-glx libxrender1 xvfb
+          apt-get update && apt-get install -y libglx-mesa0 libxrender1 xvfb
           python3 -m pip install -r requirements-docs.txt
 
       - name: ruff check and format
