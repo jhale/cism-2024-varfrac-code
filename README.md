@@ -8,9 +8,9 @@ Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
 The built book can be read at https://jhale.github.io/cism-2024-varfrac-code/.
 
-**If you have issues installing FEniCSx please contact Jack S. Hale in the
-#installation channel on the special CISM Variational Fracture Slack invite you
-have received via email, prior to the course start.**
+## Updates
+
+- 11/2024: Update for DOLFINx `v0.9.0`.
 
 ## Installation instructions
 
@@ -27,37 +27,31 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
 2. Pull the DOLFINx laboratory image:
 
-       docker pull dolfinx/lab:v0.8.0
+       docker pull dolfinx/lab:0.9.0r1
 
 3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell:
 
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0 
+       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:0.9.0r1 
 
 4. (Windows Powershell). Start a DOLFINx laboratory container using
    Powershell: 
        
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v "${pwd}:/shared" -p 8888:8888 -w /shared dolfinx/lab:v0.8.0
+       docker run -ti -v "${pwd}:/shared" -p 8888:8888 -w /shared dolfinx/lab:0.9.0r1
 
 4. (Windows cmd). Start a DOLFINx laboratory container using Windows cmd.
        
        mkdir %HOMEPATH%\cism-varfrac-course
        cd %HOMEPATH%\cism-varfrac-course
-       docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.8.0
+       docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:0.9.0r1
 
 5. A URL e.g.
    `http://127.0.0.1:8888/lab?token=544f7380ab06eb1d175d8c2b35a362e7fd7a29471b56818c`
    will be printed to the terminal. Copy this to a web browser. You should see
    the Jupyter notebook environment open.
-
-6. (macOS Apple Silicon only) To install `pyvista` go to `File > New >
-   Terminal` in the top menu, then run:
-    
-        python3 -m pip install "https://github.com/finsberg/vtk-aarch64/releases/download/vtk-9.2.6-cp310/vtk-9.2.6.dev0-cp310-cp310-linux_aarch64.whl"
-        python3 -m pip install pyvista
 
 7. Click `File > New > Notebook` in the top menu. Use the Python 3 (ipykernel)
    kernel by pressing `Select`. In the first notebook cell type:
@@ -161,7 +155,7 @@ of the MIT license.
 
 To build this Jupyter book run:
 
-    docker run -v $(pwd):/shared -w /shared -ti --entry-point /bin/bash dolfinx/lab:v0.8.0 
+    docker run -v $(pwd):/shared -w /shared -ti --entry-point /bin/bash dolfinx/lab:0.9.0r1 
     pip install -r requirements-docs.txt
     jupyter-book build .
 
