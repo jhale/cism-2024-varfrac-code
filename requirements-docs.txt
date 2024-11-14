@@ -4,4 +4,4 @@ sympy
 fenics-dolfinx>=0.8.0
 gmsh
 pyvista
-dolfiny@git+https://github.com/michalhabera/dolfiny@v0.8.0
+dolfiny@git+https://github.com/michalhabera/dolfiny@v0.9.0
