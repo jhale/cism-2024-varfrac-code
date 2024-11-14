@@ -68,7 +68,7 @@
 # You can install dolfiny in your container by opening a shell
 # and running:
 #
-#     pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
+#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@v0.9.0
 #
 # +
 import sys
