@@ -7,16 +7,17 @@ on:
     branches:
       - "!main"
       - "**"
+  pull_request:
+    branches:
+      - "main"
 
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-    container: ghcr.io/fenics/dolfinx/lab:v0.8.0
-    
+    container: ghcr.io/fenics/dolfinx/lab:v0.9.0r1
+
     env:
-      PYVISTA_TRAME_SERVER_PROXY_PREFIX: '/proxy/'
-      PYVISTA_TRAME_SERVER_PROXY_ENABLED: "True"
-      PYVISTA_OFF_SCREEN: false
+      PYVISTA_OFF_SCREEN: true
       PYVISTA_JUPYTER_BACKEND: "html"
       DISPLAY: ":99.0"
     
@@ -25,7 +26,6 @@ jobs:
       
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y libgl1-mesa-glx libxrender1 xvfb
           python3 -m pip install -r requirements-docs.txt
 
       - name: ruff check and format
@@ -34,7 +34,7 @@ jobs:
           ruff format --check .
 
       - name: Build book
-        run: jupyter book build . 
+        run: jupyter book build -W .
       
       - name: Upload documentation as artifact
         uses: actions/upload-artifact@v4
@@ -42,28 +42,3 @@ jobs:
           name: webpage
           path: _build/html
           if-no-files-found: error
-    
-  upload-docs:
-    runs-on: ubuntu-latest
-    needs: build-docs
-    permissions:
-      pages: write
-      id-token: write
-
-    steps:
-      - name: Download documentation artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: webpage
-          path: _build/html
-          if-no-files-found: error
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _build/html
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4

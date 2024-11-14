@@ -59,7 +59,7 @@ def warp_plot_2d(u, cell_field=None, field_name="Field", factor=1.0, **kwargs):
     grid["u"] = values
     warped_grid = grid.warp_by_vector("u", factor=factor)
     if cell_field is not None:
-        warped_grid.cell_data[field_name] = cell_field.vector.array
+        warped_grid.cell_data[field_name] = cell_field.x.array
         warped_grid.set_active_scalars(field_name)
     plotter.add_mesh(warped_grid, **kwargs)
     plotter.camera_position = "xy"

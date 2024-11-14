@@ -68,7 +68,7 @@
 # You can install dolfiny in your container by opening a shell
 # and running:
 #
-#     pip install git+https://github.com/michalhabera/dolfiny.git@v0.8.0
+#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@v0.9.0
 #
 # +
 import sys
@@ -375,7 +375,7 @@ solver_alpha_snes = PETSc.SNES().create()
 solver_alpha_snes.setOptionsPrefix("damage_")
 solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
 solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
-solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
+solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 
 opts["damage_snes_type"] = "vinewtonrsls"
 opts["damage_ksp_type"] = "preonly"
@@ -398,17 +398,17 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 
     for iteration in range(max_iter):
         # Solve displacement
-        solver_u_snes.solve(None, u.vector)
+        solver_u_snes.solve(None, u.x.petsc_vec)
         # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
         u.x.scatter_forward()
 
         # Solve damage
-        solver_alpha_snes.solve(None, alpha.vector)
+        solver_alpha_snes.solve(None, alpha.x.petsc_vec)
 
         # check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
         error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), op=MPI.SUM))
-        alpha.vector.copy(alpha_old.vector)
+        alpha_old.x.array[:] = alpha.x.array
 
         if monitor is not None:
             monitor(u, alpha, iteration, error_L2)

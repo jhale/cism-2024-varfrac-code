@@ -383,7 +383,7 @@ solver_u_snes.getKSP().getPC().setType("lu")
 load = 1.0
 u_D.value = load
 u.x.array[:] = 0.0
-solver_u_snes.solve(None, u.vector)
+solver_u_snes.solve(None, u.x.petsc_vec)
 plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
@@ -421,7 +421,7 @@ alpha_lb.x.array[:] = 0.0
 # Upper bound for the damage field
 alpha_ub = fem.Function(V_alpha, name="upper bound")
 alpha_ub.x.array[:] = 1.0
-solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
+solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 
 # + [markdown]
 # ### Solver description
@@ -476,7 +476,7 @@ solver_alpha_snes.setVariableBounds(alpha_lb.vector, alpha_ub.vector)
 #
 # Let us now test the solution of the damage problem
 # +
-solver_alpha_snes.solve(None, alpha.vector)
+solver_alpha_snes.solve(None, alpha.x.petsc_vec)
 plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
@@ -510,12 +510,12 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
 
     for iteration in range(max_iterations):
         # Solve for displacement
-        solver_u_snes.solve(None, u.vector)
+        solver_u_snes.solve(None, u.x.petsc_vec)
         # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
         u.x.scatter_forward()
 
         # Solve for damage
-        solver_alpha_snes.solve(None, alpha.vector)
+        solver_alpha_snes.solve(None, alpha.x.petsc_vec)
 
         # Check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
