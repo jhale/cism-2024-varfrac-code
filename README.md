@@ -27,7 +27,7 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
 2. Pull the DOLFINx laboratory image:
 
-       docker pull dolfinx/lab:0.9.0r1
+       docker pull dolfinx/lab:v0.9.0r1
 
 3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell:
 
