@@ -164,46 +164,40 @@ ds = ufl.Measure("ds", domain=msh, subdomain_data=ft)
 # returned directly by the mesh generator. This can be helpful when dealing
 # with applying boundary conditions on meshes with complex curved surfaces.
 # +
-dofs_ux_left = dolfinx.fem.locate_dofs_topological(
+bc_dofs_ux_left = dolfinx.fem.locate_dofs_topological(
     V_u.sub(0), msh.topology.dim - 1, ft.find(fm["left"])
 )
 
-dofs_ux_right = dolfinx.fem.locate_dofs_topological(
+bc_dofs_ux_right = dolfinx.fem.locate_dofs_topological(
     V_u.sub(0), msh.topology.dim - 1, ft.find(fm["right"])
 )
 
-dofs_uy_bottom = dolfinx.fem.locate_dofs_topological(
+bc_dofs_uy_bottom = dolfinx.fem.locate_dofs_topological(
     V_u.sub(1), msh.topology.dim - 1, ft.find(fm["bottom"])
 )
 
 u_D = fem.Constant(msh, 0.0)
 bcs_u = [
-    fem.dirichletbc(0.0, dofs_ux_left, V_u.sub(0)),
-    fem.dirichletbc(0.0, dofs_uy_bottom, V_u.sub(1)),
-    fem.dirichletbc(u_D, dofs_ux_right, V_u.sub(0)),
+    fem.dirichletbc(0.0, bc_dofs_ux_left, V_u.sub(0)),
+    fem.dirichletbc(0.0, bc_dofs_uy_bottom, V_u.sub(1)),
+    fem.dirichletbc(u_D, bc_dofs_ux_right, V_u.sub(0)),
 ]
-dofs_u_all = np.concatenate([dofs_ux_left, dofs_uy_bottom, dofs_ux_right])
+bc_dofs_u_all = np.concatenate([bc_dofs_ux_left, bc_dofs_uy_bottom, bc_dofs_ux_right])
 
-dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
+bc_dofs_alpha_left = dolfinx.fem.locate_dofs_topological(
     V_alpha, msh.topology.dim - 1, ft.find(fm["left"])
 )
 
-dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
+bc_dofs_alpha_right = dolfinx.fem.locate_dofs_topological(
     V_alpha, msh.topology.dim - 1, ft.find(fm["right"])
 )
 
 # Case 1: Dirichlet condition on left and right ends
 bcs_alpha = [
-    fem.dirichletbc(0.0, dofs_alpha_left, V_alpha),
-    fem.dirichletbc(0.0, dofs_alpha_right, V_alpha),
+    fem.dirichletbc(0.0, bc_dofs_alpha_left, V_alpha),
+    fem.dirichletbc(0.0, bc_dofs_alpha_right, V_alpha),
 ]
-dofs_alpha_all = np.concatenate([dofs_alpha_left, dofs_alpha_right])
-
-# Case 2: Neumann condition on left and right ends
-# bcs_alpha = []
-# dofs_alpha_all = np.array([], dtype=np.int32)
-
-bcs_all = bcs_u + bcs_alpha
+bc_dofs_alpha_all = np.concatenate([bc_dofs_alpha_left, bc_dofs_alpha_right])
 
 # + [markdown]
 # ## Variational formulation of the problem
@@ -547,11 +541,10 @@ for i_t, t in enumerate(ts):
     u_inactive_set = np.arange(
         0, V_u.dofmap.index_map_bs * V_u.dofmap.index_map.size_local, dtype=np.int32
     )
-    u_restrict = np.setdiff1d(u_inactive_set, dofs_u_all)
+    u_restrict = np.setdiff1d(u_inactive_set, bc_dofs_u_all)
 
     # Construct inactive set on damage.
-    alpha_inactive_set = inactive_damage_dofs(alpha, alpha_lb, b_alpha)
-    alpha_restrict = np.setdiff1d(alpha_inactive_set, dofs_alpha_all)
+    alpha_restrict = inactive_damage_dofs(alpha, alpha_lb, b_alpha, bc_dofs_alpha_all)
 
     restriction = Restriction([V_u, V_alpha], [u_restrict, alpha_restrict])
 
