@@ -7,9 +7,11 @@ at the 9th CISM-ECCOMAS Advanced Course on Variational Fracture Mechanics and
 Phase-Field Models taking place between July 1st 2014 and July 5th 2024.
 
 The built book can be read at https://jhale.github.io/cism-2024-varfrac-code/.
+The git repository can be found at https://github.com/jhale/cism-2024-varfrac-code/.
 
 ## Updates
 
+- 12/2024; Bug fixes in reduced space construction in stability solver.
 - 11/2024: Update for DOLFINx `v0.9.0`.
 
 ## Installation instructions
