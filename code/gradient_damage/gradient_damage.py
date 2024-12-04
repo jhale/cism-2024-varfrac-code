@@ -369,7 +369,7 @@ J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
 
 # Create Newton solver and solve
 solver_u_snes = PETSc.SNES().create()
-solver_u_snes.setType("ksponly")
+solver_u_snes.setType("newtonls")
 solver_u_snes.setFunction(elastic_problem.F, b_u)
 solver_u_snes.setJacobian(elastic_problem.J, J_u)
 solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
@@ -387,7 +387,7 @@ u_h = fem.Function(V_u)
 alpha_h = fem.Function(V_alpha)
 solver_u_snes.solve(None, u_h.x.petsc_vec)
 u.x.array[:] = u_h.x.array
-plot_damage_state(u_h, alpha_h, load=load)
+plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
 # ### Damage problem with bound-constraint
@@ -488,6 +488,8 @@ plot_damage_state(u, alpha, load=load)
 # +
 alpha.x.array[:] = 0.0
 u.x.array[:] = 0.0
+u_h.x.array[:] = 0.0
+alpha_h.x.array[:] = 0.0
 
 # + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
@@ -508,10 +510,11 @@ def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simple_monitor):
-    alpha_old = fem.Function(alpha.function_space)
-    alpha_old.x.array[:] = alpha.x.array
+alpha_old = fem.Function(alpha.function_space)
+L2_error = fem.form(ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx)
 
+def alternate_minimization(u_h, alpha_h, atol=1e-8, max_iterations=100, monitor=simple_monitor): 
+    alpha_old.x.array[:] = alpha.x.array
     for iteration in range(max_iterations):
         # Solve for displacement
         solver_u_snes.solve(None, u_h.x.petsc_vec)
@@ -525,8 +528,7 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
         alpha.x.array[:] = alpha_h.x.array
 
         # Check error and update
-        L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
-        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), op=MPI.SUM))
+        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
         alpha_old.x.array[:] = alpha.x.array
 
         if monitor is not None:
@@ -555,9 +557,14 @@ for i_t, t in enumerate(loads):
 
     # Update the lower bound to ensure irreversibility of damage field.
     alpha_lb.x.array[:] = alpha.x.array
+   
+    # Store the old value of the damage 
+    alpha_old.x.array[:] = alpha.x.array
 
     print(f"-- Solving for t = {t:3.2f} --")
-    alternate_minimization(u, alpha)
+    alternate_minimization(u_h, alpha_h)
+    u.x.array[:] = u_h.x.array
+    alpha.x.array[:] = alpha_h.x.array
     
     plot_damage_state(u, alpha)
 
