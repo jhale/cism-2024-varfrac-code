@@ -386,8 +386,10 @@ u_D.value = load
 u_h = fem.Function(V_u)
 alpha_h = fem.Function(V_alpha)
 solver_u_snes.solve(None, u_h.x.petsc_vec)
-u.x.array[:] = u_h.x.array
-plot_damage_state(u, alpha, load=load)
+plot_damage_state(u_h, alpha_h, load=load)
+
+# Explicitly update the state of the damage problem
+alpha.x.array[:] = alpha_h.x.array
 
 # + [markdown]
 # ### Damage problem with bound-constraint
@@ -482,14 +484,14 @@ solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 solver_alpha_snes.solve(None, alpha_h.x.petsc_vec)
 alpha.x.array[:] = alpha_h.x.array
 plot_damage_state(u, alpha, load=load)
+del u_h
+del alpha_h
 
 # + [markdown]
 # Before continuing we reset the displacement and damage to zero.
 # +
 alpha.x.array[:] = 0.0
 u.x.array[:] = 0.0
-u_h.x.array[:] = 0.0
-alpha_h.x.array[:] = 0.0
 
 # + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
@@ -510,15 +512,38 @@ def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-alpha_old = fem.Function(alpha.function_space)
-L2_error = fem.form(ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx)
+alpha_prev = fem.Function(alpha.function_space)
+L2_error = fem.form(ufl.inner(alpha - alpha_prev, alpha - alpha_prev) * dx)
 
-def alternate_minimization(u_h, alpha_h, atol=1e-8, max_iterations=100, monitor=simple_monitor): 
-    alpha_old.x.array[:] = alpha.x.array
+
+def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simple_monitor):
+    """
+    Perform alternate minimisation on displacement and damage problems.
+
+    Args:
+        u: Initial guess for displacement
+        alpha: Initial guess for damage
+        atol: termination criterion based absolute tolerance as L^2 distance
+            between current and previous damage iteration.
+        max_iterations: termination criterion on alternate minimisation
+            iterations
+        monitor: monitor function
+
+    Returns:
+        The displacement, damage, the alternate minimisation error and the
+        number of iterations.
+    """
+    u_h = fem.Function(V_u)
+    alpha_h = fem.Function(V_alpha)
+
+    u_h.x.array[:] = u.x.array
+    alpha_h.x.array[:] = u.x.array
+
     for iteration in range(max_iterations):
+        alpha_prev.x.array[:] = alpha.x.array
+
         # Solve for displacement
         solver_u_snes.solve(None, u_h.x.petsc_vec)
-        # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
         u_h.x.scatter_forward()
         u.x.array[:] = u_h.x.array
 
@@ -529,13 +554,12 @@ def alternate_minimization(u_h, alpha_h, atol=1e-8, max_iterations=100, monitor=
 
         # Check error and update
         error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
-        alpha_old.x.array[:] = alpha.x.array
 
         if monitor is not None:
-            monitor(u, alpha, iteration, error_L2)
+            monitor(u_h, alpha_h, iteration, error_L2)
 
         if error_L2 <= atol:
-            return (error_L2, iteration)
+            return (u_h, alpha_h, error_L2, iteration)
 
     raise RuntimeError(
         f"Could not converge after {max_iterations} iterations, error {error_L2:3.4e}"
@@ -557,17 +581,14 @@ for i_t, t in enumerate(loads):
 
     # Update the lower bound to ensure irreversibility of damage field.
     alpha_lb.x.array[:] = alpha.x.array
-   
-    # Store the old value of the damage 
-    alpha_old.x.array[:] = alpha.x.array
 
     print(f"-- Solving for t = {t:3.2f} --")
-    alternate_minimization(u_h, alpha_h)
-    u.x.array[:] = u_h.x.array
-    alpha.x.array[:] = alpha_h.x.array
-    
+    u_h, alpha_h, error_L2, num_iterations = alternate_minimization(u, alpha)
+
     plot_damage_state(u, alpha)
 
+    u.x.array[:] = u_h.x.array
+    alpha.x.array[:] = alpha_h.x.array
     # Calculate the energies
     energies[i_t, 1] = comm.allreduce(
         dolfinx.fem.assemble_scalar(dolfinx.fem.form(elastic_energy)),
