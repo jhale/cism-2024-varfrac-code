@@ -508,7 +508,7 @@ def simple_monitor(u, alpha, iteration, error_L2):
     print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
 
 
-alpha_prev = fem.Function(alpha.function_space)
+alpha_prev = fem.Function(V_alpha)
 L2_error = fem.form(ufl.inner(alpha - alpha_prev, alpha - alpha_prev) * dx)
 
 
@@ -528,22 +528,17 @@ def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=
     Returns:
         The error and number of iterations.
     """
-    # Fix damage
-    alpha.x.array[:] = x_alpha.x.array
-
     for iteration in range(max_iterations):
+        # Store previous damage state
         alpha_prev.x.array[:] = x_alpha.x.array
 
         # Solve for displacement at fixed damage
+        alpha.x.array[:] = x_alpha.x.array
         solver_u_snes.solve(None, x_u.x.petsc_vec)
-        x_u.x.scatter_forward()
 
-        # Fix displacement
+        # Solve for damage at fixed displacement
         u.x.array[:] = x_u.x.array
-
-        # Solve for damage
         solver_alpha_snes.solve(None, x_alpha.x.petsc_vec)
-        x_alpha.x.scatter_forward()
 
         # Fix damage
         alpha.x.array[:] = x_alpha.x.array
@@ -551,10 +546,9 @@ def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=
         # Check error and update
         error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
 
-        if monitor is not None:
-            monitor(x_u, x_alpha, iteration, error_L2)
+        monitor(x_u, x_alpha, iteration, error_L2)
 
-        if error_L2 <= atol:
+        if error_L2 < atol:
             return (error_L2, iteration)
 
     raise RuntimeError(
