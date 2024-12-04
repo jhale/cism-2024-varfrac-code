@@ -35,7 +35,7 @@ class SNESProblem:
         x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
         x.copy(self.u.x.petsc_vec)
         self.u.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        
+
         J.zeroEntries()
         fem.petsc.assemble_matrix(J, self.a, bcs=self.bcs)
         J.assemble()
