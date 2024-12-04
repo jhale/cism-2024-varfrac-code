@@ -386,6 +386,7 @@ u_D.value = load
 u_h = fem.Function(V_u)
 alpha_h = fem.Function(V_alpha)
 solver_u_snes.solve(None, u_h.x.petsc_vec)
+u.x.array[:] = u_h.x.array
 plot_damage_state(u_h, alpha_h, load=load)
 
 # + [markdown]
@@ -479,13 +480,14 @@ solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 # Let us now test the solution of the damage problem
 # +
 solver_alpha_snes.solve(None, alpha_h.x.petsc_vec)
-plot_damage_state(u_h, alpha_h, load=load)
+alpha.x.array[:] = alpha_h.x.array
+plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
 # Before continuing we reset the displacement and damage to zero.
 # +
-alpha_h.x.array[:] = 0.0
-u_h.x.array[:] = 0.0
+alpha.x.array[:] = 0.0
+u.x.array[:] = 0.0
 
 # + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
@@ -515,18 +517,20 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
         solver_u_snes.solve(None, u_h.x.petsc_vec)
         # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
         u_h.x.scatter_forward()
+        u.x.array[:] = u_h.x.array
 
         # Solve for damage
         solver_alpha_snes.solve(None, alpha_h.x.petsc_vec)
         alpha_h.x.scatter_forward()
+        alpha.x.array[:] = alpha_h.x.array
 
         # Check error and update
-        L2_error = ufl.inner(alpha_h - alpha_old, alpha_h - alpha_old) * dx
+        L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
         error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(L2_error)), op=MPI.SUM))
-        alpha_old.x.array[:] = alpha_h.x.array
+        alpha_old.x.array[:] = alpha.x.array
 
         if monitor is not None:
-            monitor(u_h, alpha_h, iteration, error_L2)
+            monitor(u, alpha, iteration, error_L2)
 
         if error_L2 <= atol:
             return (error_L2, iteration)
@@ -550,14 +554,12 @@ for i_t, t in enumerate(loads):
     energies[i_t, 0] = t
 
     # Update the lower bound to ensure irreversibility of damage field.
-    alpha_lb.x.array[:] = alpha_h.x.array
+    alpha_lb.x.array[:] = alpha.x.array
 
     print(f"-- Solving for t = {t:3.2f} --")
-    alternate_minimization(u_h, alpha_h)
+    alternate_minimization(u, alpha)
     
-    u.x.array[:] = u_h.x.array 
-    alpha.x.array[:] = alpha_h.x.array 
-    plot_damage_state(u_h, alpha_h)
+    plot_damage_state(u, alpha)
 
     # Calculate the energies
     energies[i_t, 1] = comm.allreduce(
