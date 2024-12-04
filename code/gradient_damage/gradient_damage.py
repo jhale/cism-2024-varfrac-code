@@ -477,7 +477,7 @@ solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 # enhanced with a line search procedure to compute how far along the direction
 # $d^k$ we should move.
 #
-# Let us now test the solution of the damage problem at the computed displacement
+# Let us now test the solution of the damage problem at a fixed displacement
 # +
 u.x.array[:] = x_u.x.array
 solver_alpha_snes.solve(None, x_alpha.x.petsc_vec)
