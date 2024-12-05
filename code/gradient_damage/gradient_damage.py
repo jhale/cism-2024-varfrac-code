@@ -540,10 +540,8 @@ def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=
         u.x.array[:] = x_u.x.array
         solver_alpha_snes.solve(None, x_alpha.x.petsc_vec)
 
-        # Fix damage
+        # Fix damage, check error and update
         alpha.x.array[:] = x_alpha.x.array
-
-        # Check error and update
         error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
 
         monitor(x_u, x_alpha, iteration, error_L2)
