@@ -367,15 +367,25 @@ elastic_problem = SNESProblem(E_u, u, bcs_u)
 b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
 J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
 
+# create PETSc options to have better control over the solver arguments
+opts = PETSc.Options()
+
 # Create Newton solver and solve
 solver_u_snes = PETSc.SNES().create()
+solver_u_snes.setOptionsPrefix("u_")
 solver_u_snes.setType("newtonls")
 solver_u_snes.setFunction(elastic_problem.F, b_u)
 solver_u_snes.setJacobian(elastic_problem.J, J_u)
-solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_u_snes.getKSP().getPC().setType("lu")
+opts["u_snes_monitor"] = ""  # this will print to stdout
+opts["u_snes_linesearch_monitor"] = ""  # this will print to stdout
+opts["u_snes_rtol"] = 1.0e-9
+opts["u_snes_atol"] = 1.0e-9
+opts["u_snes_max_it"] = 100
+solver_u_snes.setFromOptions()
+solver_u_snes.setErrorIfNotConverged(True)  # crucial, otherwise SNES will not raise an error
 
 # + [markdown]
 # We test the solution of the elasticity problem
@@ -411,12 +421,19 @@ J_alpha = fem.petsc.create_matrix(damage_problem.a)
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = PETSc.SNES().create()
 solver_alpha_snes.setType("vinewtonrsls")
+solver_alpha_snes.setOptionsPrefix("alpha_")
 solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
 solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
-solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_alpha_snes.getKSP().setType("preonly")
 solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
+opts["alpha_snes_monitor"] = ""  # this will print to stdout
+opts["alpha_snes_linesearch_monitor"] = ""  # this will print to stdout
+opts["alpha_snes_rtol"] = 1.0e-9
+opts["alpha_snes_atol"] = 1.0e-9
+opts["alpha_snes_max_it"] = 100
+solver_alpha_snes.setFromOptions()
+solver_alpha_snes.setErrorIfNotConverged(True)  # crucial, otherwise SNES will not raise an error
 
 # Lower bound for the damage field
 alpha_lb = fem.Function(V_alpha, name="lower bound")
@@ -500,19 +517,25 @@ x_alpha.x.array[:] = 0.0
 # We now define a function that `alternate_minimization` that performs the
 # alternative minimisation algorithm and assesses convergence based on the
 # $L^2$ norm of the difference between the damage field at the current iterate
-# and the previous iterate.
+# and the previous iterate, as well as the $L^2$ norm of the residual of the
+# displacement field, updated with the current damage field.
 # +
 
 
-def simple_monitor(u, alpha, iteration, error_L2):
-    print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
+def simple_monitor(u, alpha, iteration, Δalpha_norm, R_u_norm):
+    print(
+        f"staggered iteration: {iteration}, "
+        f"||Δα||_2: {Δalpha_norm:3.4e}, ||R_u||_2: {R_u_norm:3.4e}"
+    )
 
 
 alpha_prev = fem.Function(V_alpha)
 L2_error = fem.form(ufl.inner(alpha - alpha_prev, alpha - alpha_prev) * dx)
 
 
-def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=simple_monitor):
+def alternate_minimization(
+    x_u, x_alpha, tol_Δalpha=1e-8, tol_R_u=1e-8, max_iterations=100, monitor=simple_monitor
+):
     """
     Perform alternate minimisation on displacement and damage problems.
 
@@ -542,15 +565,20 @@ def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=
 
         # Fix damage, check error and update
         alpha.x.array[:] = x_alpha.x.array
-        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
+        Δalpha_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
 
-        monitor(x_u, x_alpha, iteration, error_L2)
+        # compute the residual of the displacement problem
+        solver_u_snes.computeFunction(x_u.x.petsc_vec, b_u)
+        R_u_norm = comm.allreduce(b_u.norm(), op=MPI.SUM)
 
-        if error_L2 < atol:
-            return (error_L2, iteration)
+        monitor(x_u, x_alpha, iteration, Δalpha_norm, R_u_norm)
+
+        if Δalpha_norm < tol_Δalpha and R_u_norm < tol_R_u:
+            return (Δalpha_norm, R_u_norm, iteration)
 
     raise RuntimeError(
-        f"Could not converge after {max_iterations} iterations, error {error_L2:3.4e}"
+        f"Could not converge after {max_iterations} iterations, "
+        f"||Δα||_2: {Δalpha_norm:3.4e}, ||R_u||_2: {R_u_norm:3.4e}"
     )
 
 
@@ -570,8 +598,8 @@ for i_t, t in enumerate(loads):
     # Update the lower bound to ensure irreversibility of damage field.
     alpha_lb.x.array[:] = x_alpha.x.array
 
-    print(f"-- Solving for t = {t:3.2f} --")
-    error_L2, num_iterations = alternate_minimization(x_u, x_alpha)
+    print("_" * 100, f"\nsolving for t: {t:3.2f}")
+    Δalpha_norm, R_u_norm, num_iterations = alternate_minimization(x_u, x_alpha)
 
     plot_damage_state(x_u, x_alpha)
 
