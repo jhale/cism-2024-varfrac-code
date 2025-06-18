@@ -45,13 +45,12 @@ import basix
 import dolfinx
 import dolfinx.fem.petsc
 import ufl
-from dolfinx import fem, io, la, mesh, plot
+from dolfinx import fem, io, mesh, plot
 
 sys.path.append("../utils/")
 
 import pyvista
 from evaluate_on_points import evaluate_on_points
-from petsc_problems import SNESProblem
 from plots import plot_damage_state
 from pyvista.utilities.xvfb import start_xvfb
 
@@ -244,23 +243,19 @@ total_energy += very_weak_springs_to_block_rigid_body_modes
 # ### Displacement problem
 # The displacement problem ($u$) at for fixed damage ($\alpha$) is a linear
 # problem equivalent to linear elasticity with a spatially varying stiffness.
-# We solve it with a standard linear solver. We use automatic differention to
-# get the first derivative of the energy. We use a direct solve to solve the
-# linear system, but you can also set iterative solvers and preconditioners
-# when solving large problem in parallel.
+# We solve it with a nonlinear solver which always converges in one Newton
+# step. We use automatic differention to get the first derivative of the
+# energy. We use a direct solve to solve the linear system, but you can also
+# set iterative solvers and preconditioners when solving large problem in
+# parallel.
 # +
 E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = SNESProblem(E_u, u, bcs_u)
-
-b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
-J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u)
 
 # Create Newton solver and solve
-solver_u_snes = PETSc.SNES().create()
+solver_u_snes = elastic_problem.solver
 solver_u_snes.setType("ksponly")
-solver_u_snes.setFunction(elastic_problem.F, b_u)
-solver_u_snes.setJacobian(elastic_problem.J, J_u)
 solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
@@ -282,16 +277,11 @@ E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 # We now set up the PETSc solver using petsc4py, a fully featured Python
 # wrapper around PETSc.
 # +
-damage_problem = SNESProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
-
-b_alpha = la.create_petsc_vector(V_alpha.dofmap.index_map, V_alpha.dofmap.index_map_bs)
-J_alpha = fem.petsc.create_matrix(damage_problem.a)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
 
 # Create Newton variational inequality solver and solve
-solver_alpha_snes = PETSc.SNES().create()
+solver_alpha_snes = damage_problem.solver
 solver_alpha_snes.setType("vinewtonrsls")
-solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
-solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
 solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_alpha_snes.getKSP().setType("preonly")
 solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
@@ -336,12 +326,12 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
 
     for iteration in range(max_iterations):
         # Solve for displacement
-        solver_u_snes.solve(None, u.x.petsc_vec)
+        elastic_problem.solve()
         # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
         u.x.scatter_forward()
 
         # Solve for damage
-        solver_alpha_snes.solve(None, alpha.x.petsc_vec)
+        damage_problem.solve()
 
         # Check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
