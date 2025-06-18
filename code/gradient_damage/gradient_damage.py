@@ -536,6 +536,9 @@ def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=
         alpha.x.array[:] = x_alpha.x.array
         solver_u_snes.solve(None, x_u.x.petsc_vec)
 
+        inactive_set = solver_alpha_snes.getVIInactiveSet()
+        print(inactive_set.array)
+
         # Solve for damage at fixed displacement
         u.x.array[:] = x_u.x.array
         solver_alpha_snes.solve(None, x_alpha.x.petsc_vec)
