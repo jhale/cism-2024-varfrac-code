@@ -85,7 +85,6 @@ import basix.ufl
 import dolfinx
 import dolfinx.fem as fem
 import dolfinx.fem.petsc
-import dolfinx.la as la
 import dolfinx.plot as plot
 import ufl
 
