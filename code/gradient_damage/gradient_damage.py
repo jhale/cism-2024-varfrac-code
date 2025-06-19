@@ -363,6 +363,9 @@ E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
 elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u)
 
+# create PETSc options to have better control over the solver arguments
+opts = PETSc.Options()
+
 # Create Newton solver and solve
 solver_u_snes = elastic_problem.solver
 solver_u_snes.setType("newtonls")
@@ -370,6 +373,8 @@ solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_u_snes.getKSP().getPC().setType("lu")
+solver_u_snes.setFromOptions()
+solver_u_snes.setErrorIfNotConverged(True)
 
 # + [markdown]
 # We test the solution of the elasticity problem
@@ -398,10 +403,12 @@ damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = damage_problem.solver
 solver_alpha_snes.setType("vinewtonrsls")
-solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
+solver_alpha_snes.setTolerances(rtol=1.0e-9, atol=1.0e-9, max_it=100)
 solver_alpha_snes.getKSP().setType("preonly")
 solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
+solver_alpha_snes.setFromOptions()
+solver_alpha_snes.setErrorIfNotConverged(True)
 
 # Lower bound for the damage field
 alpha_lb = fem.Function(V_alpha, name="lower bound")
@@ -478,27 +485,34 @@ plot_damage_state(u, alpha, load=load)
 # We now define a function that `alternate_minimization` that performs the
 # alternative minimisation algorithm and assesses convergence based on the
 # $L^2$ norm of the difference between the damage field at the current iterate
-# and the previous iterate.
+# and the previous iterate, as well as the $L^2$ norm of the residual of the
+# displacement field, updated with the current damage field.
 # +
 
 
-def simple_monitor(u, alpha, iteration, error_L2):
-    print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
+def simple_monitor(u, alpha, iteration, dalpha_norm, R_u_norm):
+    print(
+        f"Staggered iteration: {iteration}, "
+        f"||Δα||_2: {dalpha_norm:3.4e}, ||R_u||_2: {R_u_norm:3.4e}"
+    )
 
 
 alpha_prev = fem.Function(V_alpha)
 L2_error = fem.form(ufl.inner(alpha - alpha_prev, alpha - alpha_prev) * dx)
 
 
-def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simple_monitor):
+def alternate_minimization(
+    u, alpha, dalpha_atol=1e-8, R_u_atol=1e-8, max_iterations=100, monitor=simple_monitor
+):
     """
     Perform alternate minimisation on displacement and damage problems.
 
     Args:
         x_u: Initial guess for displacement
         x_alpha: Initial guess for damage
-        atol: termination criterion based absolute tolerance as L^2 distance
+        dalpha_atol: termination criterion based absolute tolerance as L^2 distance
             between current and previous damage iteration.
+        R_u_atol: termination criterion based on residual of elastic problem
         max_iterations: termination criterion on alternate minimisation
             iterations
         monitor: monitor function
@@ -516,15 +530,21 @@ def alternate_minimization(u, alpha, atol=1e-8, max_iterations=100, monitor=simp
         # Solve for damage problem at fixed displacement
         damage_problem.solve()
 
-        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
+        # Fix damage, check error and update
+        dalpha_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
 
-        monitor(u, alpha, iteration, error_L2)
+        # compute the residual of the displacement problem
+        solver_u_snes.computeFunction(u.x.petsc_vec, elastic_problem.b)
+        R_u_norm = elastic_problem.b.norm()
 
-        if error_L2 < atol:
-            return (error_L2, iteration)
+        monitor(u, alpha, iteration, dalpha_norm, R_u_norm)
+
+        if dalpha_norm < dalpha_atol and R_u_norm < R_u_atol:
+            return (dalpha_norm, R_u_norm, iteration)
 
     raise RuntimeError(
-        f"Could not converge after {max_iterations} iterations, error {error_L2:3.4e}"
+        f"Could not converge after {max_iterations} iterations, "
+        f"||Δα||_2: {dalpha_norm:3.4e}, ||R_u||_2: {R_u_norm:3.4e}"
     )
 
 
@@ -545,7 +565,7 @@ for i_t, t in enumerate(loads):
     alpha_lb.x.array[:] = alpha.x.array
 
     print(f"-- Solving for t = {t:3.2f} --")
-    error_L2, num_iterations = alternate_minimization(u, alpha)
+    dalpha_norm, R_u_norm, num_iterations = alternate_minimization(u, alpha)
 
     plot_damage_state(u, alpha)
 
