@@ -74,7 +74,7 @@ lc = 0.05
 dist_min = 0.1
 dist_max = 0.3
 comm = MPI.COMM_WORLD
-mesh_data = generate_mesh_with_crack(
+mesh_data, _, _ = generate_mesh_with_crack(
     comm,
     Lcrack=Lcrack,
     Ly=Ly,
