@@ -569,6 +569,7 @@ for i_t, t in enumerate(ts):
 #
 # Let's check the total, elastic and dissipated energies visually.
 # +
+plt.figure()
 (p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
@@ -586,6 +587,7 @@ plt.show()
 # onset of damage. All eigenvalues are positive, and consequently all states
 # found are stable according to the criteria.
 # +
+plt.figure()
 fig = plt.plot(eigenvalues[:, 0], eigenvalues[:, 1], "go", label="Eigenvalues")
 plt.xlabel("Displacement")
 plt.ylabel(r"$\lambda_0$")
@@ -597,6 +599,7 @@ plt.show()
 # We can also plot also the force displacement diagram and color each point in
 # green if stable or red if unstable.
 # +
+plt.figure()
 for i, eigenvalue in enumerate(eigenvalues):
     color = "green" if eigenvalue[1] > 0.0 else "red"
     plt.scatter(ts[i], forces[i], marker="o", color=color)
