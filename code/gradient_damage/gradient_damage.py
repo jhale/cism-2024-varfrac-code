@@ -583,6 +583,7 @@ for i_t, t in enumerate(loads):
 # We now plot the total, elastic and dissipated energies throughout the
 # pseudo-time evolution against the applied displacement.
 # +
+fig = plt.figure()
 (p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
