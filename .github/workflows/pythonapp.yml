@@ -33,6 +33,11 @@ jobs:
           ruff check .
           ruff format --check .
 
+      - name: Run files not in book
+         working-directory: code/
+         run: |
+           python ls_exercise/ls_exercise_solution.py
+      
       - name: Build book
         run: jupyter book build -W .
       
