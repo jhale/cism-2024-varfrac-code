@@ -1,2 +1,2 @@
 #!/bin/bash
-docker run -ti -v $(pwd):/shared -w /shared --entrypoint /bin/bash dolfinx/dolfinx:v0.9.0r1
+docker run --rm -e XDG_RUNTIME_DIR=/tmp -e PYVISTA_OFF_SCREEN=true -ti -v $(pwd):/shared -w /shared --entrypoint /bin/bash dolfinx/lab:nightly -l

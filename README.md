@@ -11,6 +11,7 @@ The git repository can be found at https://github.com/jhale/cism-2024-varfrac-co
 
 ## Updates
 
+- 06/2025: Update for DOLFINx `v0.10.0`.
 - 12/2024; Bug fixes in reduced space construction in stability solver.
 - 11/2024: Update for DOLFINx `v0.9.0`.
 
@@ -195,5 +196,5 @@ editor. For more information see
 
 To install pyvista in ARM docker:
 
-    python3 -m pip install "https://github.com/finsberg/vtk-aarch64/releases/download/vtk-9.2.6-cp310/vtk-9.2.6.dev0-cp310-cp310-linux_aarch64.whl"
+    python3 -m pip install "https://github.com/scientificcomputing/vtk-aarch64/releases/download/v9.4.2-py3.12-more-flags/vtk-9.4.2-cp312-cp312-linux_aarch64.whl"
     python3 -m pip install pyvista

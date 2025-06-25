@@ -69,13 +69,10 @@ def generate_mesh_with_crack(
             model.addPhysicalGroup(1, [value], tag=value)
             model.setPhysicalName(1, value, key)
 
-        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
+        mesh_data = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
         gmsh.finalize()
-        msh.name = "rectangle"
-        cell_tags.name = f"{msh.name}_cells"
-        facet_tags.name = f"{msh.name}_facets"
 
-        return msh, cell_tags, facet_tags, cell_map, facet_map
+        return mesh_data, cell_map, facet_map
 
 
 def generate_bar_mesh(comm, Lx, Ly, lc):
@@ -121,11 +118,7 @@ def generate_bar_mesh(comm, Lx, Ly, lc):
 
         model.mesh.generate(tdim)
 
-        msh, cell_tags, facet_tags = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
+        mesh_data = gmshio.model_to_mesh(model, comm, model_rank, gdim=gdim)
         gmsh.finalize()
 
-        msh.name = "rectangle"
-        cell_tags.name = f"{msh.name}_cells"
-        facet_tags.name = f"{msh.name}_facets"
-
-        return msh, cell_tags, facet_tags, cell_map, facet_map
+        return mesh_data, cell_map, facet_map

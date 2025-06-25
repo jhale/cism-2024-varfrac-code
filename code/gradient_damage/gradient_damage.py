@@ -94,14 +94,13 @@ import basix
 import dolfinx
 import dolfinx.fem.petsc
 import ufl
-from dolfinx import fem, la, mesh, plot
+from dolfinx import fem, mesh, plot
 
 sys.path.append("../utils/")
 
 import pyvista
 import sympy
 from evaluate_on_points import evaluate_on_points
-from petsc_problems import SNESProblem
 from plots import plot_damage_state
 from pyvista.utilities.xvfb import start_xvfb
 
@@ -362,20 +361,20 @@ total_energy = elastic_energy + dissipated_energy - external_work
 # +
 E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = SNESProblem(E_u, u, bcs_u)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u)
 
-b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
-J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
+# create PETSc options to have better control over the solver arguments
+opts = PETSc.Options()
 
 # Create Newton solver and solve
-solver_u_snes = PETSc.SNES().create()
+solver_u_snes = elastic_problem.solver
 solver_u_snes.setType("newtonls")
-solver_u_snes.setFunction(elastic_problem.F, b_u)
-solver_u_snes.setJacobian(elastic_problem.J, J_u)
 solver_u_snes.setTolerances(rtol=1.0e-9, max_it=50)
 solver_u_snes.getKSP().setType("preonly")
 solver_u_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_u_snes.getKSP().getPC().setType("lu")
+solver_u_snes.setFromOptions()
+solver_u_snes.setErrorIfNotConverged(True)
 
 # + [markdown]
 # We test the solution of the elasticity problem
@@ -383,11 +382,7 @@ solver_u_snes.getKSP().getPC().setType("lu")
 load = 1.0
 u_D.value = load
 
-x_u = fem.Function(V_u)
-solver_u_snes.solve(None, x_u.x.petsc_vec)
-
-x_alpha = fem.Function(V_alpha)
-plot_damage_state(x_u, x_alpha, load=load)
+plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
 # ### Damage problem with bound-constraint
@@ -403,20 +398,17 @@ E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 
 # We now set up the PETSc solver using petsc4py, a fully featured Python
 # wrapper around PETSc.
-damage_problem = SNESProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
-
-b_alpha = la.create_petsc_vector(V_alpha.dofmap.index_map, V_alpha.dofmap.index_map_bs)
-J_alpha = fem.petsc.create_matrix(damage_problem.a)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
 
 # Create Newton variational inequality solver and solve
-solver_alpha_snes = PETSc.SNES().create()
+solver_alpha_snes = damage_problem.solver
 solver_alpha_snes.setType("vinewtonrsls")
-solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
-solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
-solver_alpha_snes.setTolerances(rtol=1.0e-9, max_it=50)
+solver_alpha_snes.setTolerances(rtol=1.0e-9, atol=1.0e-9, max_it=100)
 solver_alpha_snes.getKSP().setType("preonly")
 solver_alpha_snes.getKSP().setTolerances(rtol=1.0e-9)
 solver_alpha_snes.getKSP().getPC().setType("lu")
+solver_alpha_snes.setFromOptions()
+solver_alpha_snes.setErrorIfNotConverged(True)
 
 # Lower bound for the damage field
 alpha_lb = fem.Function(V_alpha, name="lower bound")
@@ -479,15 +471,8 @@ solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 #
 # Let us now test the solution of the damage problem at a fixed displacement
 # +
-u.x.array[:] = x_u.x.array
-solver_alpha_snes.solve(None, x_alpha.x.petsc_vec)
-plot_damage_state(x_u, x_alpha, load=load)
-
-# + [markdown]
-# Before continuing we reset the displacement and damage initial guesses to zero.
-# +
-x_u.x.array[:] = 0.0
-x_alpha.x.array[:] = 0.0
+damage_problem.solve()
+plot_damage_state(u, alpha, load=load)
 
 # + [markdown]
 # ### The static problem: solution with the alternate minimization algorithm
@@ -500,27 +485,34 @@ x_alpha.x.array[:] = 0.0
 # We now define a function that `alternate_minimization` that performs the
 # alternative minimisation algorithm and assesses convergence based on the
 # $L^2$ norm of the difference between the damage field at the current iterate
-# and the previous iterate.
+# and the previous iterate, as well as the $L^2$ norm of the residual of the
+# displacement field, updated with the current damage field.
 # +
 
 
-def simple_monitor(u, alpha, iteration, error_L2):
-    print(f"Iteration: {iteration}, Error: {error_L2:3.4e}")
+def simple_monitor(u, alpha, iteration, dalpha_norm, R_u_norm):
+    print(
+        f"Staggered iteration: {iteration}, "
+        f"||Δα||_2: {dalpha_norm:3.4e}, ||R_u||_2: {R_u_norm:3.4e}"
+    )
 
 
 alpha_prev = fem.Function(V_alpha)
 L2_error = fem.form(ufl.inner(alpha - alpha_prev, alpha - alpha_prev) * dx)
 
 
-def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=simple_monitor):
+def alternate_minimization(
+    u, alpha, dalpha_atol=1e-8, R_u_atol=1e-8, max_iterations=100, monitor=simple_monitor
+):
     """
     Perform alternate minimisation on displacement and damage problems.
 
     Args:
         x_u: Initial guess for displacement
         x_alpha: Initial guess for damage
-        atol: termination criterion based absolute tolerance as L^2 distance
+        dalpha_atol: termination criterion based absolute tolerance as L^2 distance
             between current and previous damage iteration.
+        R_u_atol: termination criterion based on residual of elastic problem
         max_iterations: termination criterion on alternate minimisation
             iterations
         monitor: monitor function
@@ -530,27 +522,29 @@ def alternate_minimization(x_u, x_alpha, atol=1e-8, max_iterations=100, monitor=
     """
     for iteration in range(max_iterations):
         # Store previous damage state
-        alpha_prev.x.array[:] = x_alpha.x.array
+        alpha_prev.x.array[:] = alpha.x.array
 
         # Solve for displacement at fixed damage
-        alpha.x.array[:] = x_alpha.x.array
-        solver_u_snes.solve(None, x_u.x.petsc_vec)
+        elastic_problem.solve()
 
-        # Solve for damage at fixed displacement
-        u.x.array[:] = x_u.x.array
-        solver_alpha_snes.solve(None, x_alpha.x.petsc_vec)
+        # Solve for damage problem at fixed displacement
+        damage_problem.solve()
 
         # Fix damage, check error and update
-        alpha.x.array[:] = x_alpha.x.array
-        error_L2 = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
+        dalpha_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(L2_error), op=MPI.SUM))
 
-        monitor(x_u, x_alpha, iteration, error_L2)
+        # compute the residual of the displacement problem
+        solver_u_snes.computeFunction(u.x.petsc_vec, elastic_problem.b)
+        R_u_norm = elastic_problem.b.norm()
 
-        if error_L2 < atol:
-            return (error_L2, iteration)
+        monitor(u, alpha, iteration, dalpha_norm, R_u_norm)
+
+        if dalpha_norm < dalpha_atol and R_u_norm < R_u_atol:
+            return (dalpha_norm, R_u_norm, iteration)
 
     raise RuntimeError(
-        f"Could not converge after {max_iterations} iterations, error {error_L2:3.4e}"
+        f"Could not converge after {max_iterations} iterations, "
+        f"||Δα||_2: {dalpha_norm:3.4e}, ||R_u||_2: {R_u_norm:3.4e}"
     )
 
 
@@ -568,15 +562,13 @@ for i_t, t in enumerate(loads):
     energies[i_t, 0] = t
 
     # Update the lower bound to ensure irreversibility of damage field.
-    alpha_lb.x.array[:] = x_alpha.x.array
+    alpha_lb.x.array[:] = alpha.x.array
 
     print(f"-- Solving for t = {t:3.2f} --")
-    error_L2, num_iterations = alternate_minimization(x_u, x_alpha)
+    dalpha_norm, R_u_norm, num_iterations = alternate_minimization(u, alpha)
 
-    plot_damage_state(x_u, x_alpha)
+    plot_damage_state(u, alpha)
 
-    u.x.array[:] = x_u.x.array
-    alpha.x.array[:] = x_alpha.x.array
     # Calculate the energies
     energies[i_t, 1] = comm.allreduce(
         dolfinx.fem.assemble_scalar(dolfinx.fem.form(elastic_energy)),
@@ -591,6 +583,7 @@ for i_t, t in enumerate(loads):
 # We now plot the total, elastic and dissipated energies throughout the
 # pseudo-time evolution against the applied displacement.
 # +
+fig = plt.figure()
 (p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")

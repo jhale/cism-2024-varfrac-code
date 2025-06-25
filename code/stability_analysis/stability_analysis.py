@@ -85,7 +85,6 @@ import basix.ufl
 import dolfinx
 import dolfinx.fem as fem
 import dolfinx.fem.petsc
-import dolfinx.la as la
 import dolfinx.plot as plot
 import ufl
 
@@ -94,7 +93,6 @@ sys.path.append("../utils/")
 import matplotlib.pyplot as plt
 from inactive_set import inactive_damage_dofs
 from meshes import generate_bar_mesh
-from petsc_problems import SNESProblem
 from plots import plot_damage_state
 from pyvista.utilities.xvfb import start_xvfb
 
@@ -114,7 +112,9 @@ Ly = 0.1  # Size of domain in y-direction
 ell = 0.5  # Regularisation length scale.
 
 comm = MPI.COMM_WORLD
-msh, mt, ft, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell / 40.0)
+mesh_data, mm, fm = generate_bar_mesh(comm, Lx=Lx, Ly=Ly, lc=ell / 40.0)
+msh = mesh_data.mesh
+ft = mesh_data.facet_tags
 
 import pyvista  # noqa: E402
 
@@ -332,19 +332,11 @@ energy = total_energy(u, alpha)
 # +
 E_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = SNESProblem(E_u, u, bcs_u, J=E_u_u)
-
-b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
-J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
-
-b_u = la.create_petsc_vector(V_u.dofmap.index_map, V_u.dofmap.index_map_bs)
-J_u = dolfinx.fem.petsc.create_matrix(elastic_problem.a)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u, J=E_u_u)
 
 # Setup linear elasticity problem and solve
-solver_u_snes = PETSc.SNES().create()
+solver_u_snes = elastic_problem.solver
 solver_u_snes.setOptionsPrefix("elasticity_")
-solver_u_snes.setFunction(elastic_problem.F, b_u)
-solver_u_snes.setJacobian(elastic_problem.J, J_u)
 
 opts = PETSc.Options()
 opts["elasticity_snes_type"] = "ksponly"
@@ -359,16 +351,11 @@ solver_u_snes.setFromOptions()
 E_alpha = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
 E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 
-damage_problem = SNESProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
-
-b_alpha = la.create_petsc_vector(V_alpha.dofmap.index_map, V_alpha.dofmap.index_map_bs)
-J_alpha = fem.petsc.create_matrix(damage_problem.a)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
 
 # Create Newton variational inequality solver and solve
-solver_alpha_snes = PETSc.SNES().create()
+solver_alpha_snes = damage_problem.solver
 solver_alpha_snes.setOptionsPrefix("damage_")
-solver_alpha_snes.setFunction(damage_problem.F, b_alpha)
-solver_alpha_snes.setJacobian(damage_problem.J, J_alpha)
 solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 
 opts["damage_snes_type"] = "vinewtonrsls"
@@ -392,12 +379,12 @@ def alternate_minimization(u, alpha, atol=1e-6, max_iter=100, monitor=simple_mon
 
     for iteration in range(max_iter):
         # Solve displacement
-        solver_u_snes.solve(None, u.x.petsc_vec)
+        elastic_problem.solve()
         # This forward scatter is necessary when `solver_u_snes` is of type `ksponly`.
         u.x.scatter_forward()
 
         # Solve damage
-        solver_alpha_snes.solve(None, alpha.x.petsc_vec)
+        damage_problem.solve()
 
         # check error and update
         L2_error = ufl.inner(alpha - alpha_old, alpha - alpha_old) * dx
@@ -454,8 +441,8 @@ B[1][1] = ufl.inner(ufl.TrialFunction(V_alpha), ufl.TestFunction(V_alpha)) * dx
 A_form = fem.form(A)
 B_form = fem.form(B)
 
-A = fem.petsc.create_matrix_block(A_form)
-B = fem.petsc.create_matrix_block(B_form)
+A = fem.petsc.create_matrix(A_form, kind="mpi")
+B = fem.petsc.create_matrix(B_form, kind="mpi")
 
 # + [markdown]
 # SLEPc is a package for solving large-scale sparse eigenvalue problems. Here
@@ -530,11 +517,11 @@ for i_t, t in enumerate(ts):
 
     # Assemble operators on the entire space, then restrict.
     A.zeroEntries()
-    fem.petsc.assemble_matrix_block(A, A_form)
+    fem.petsc.assemble_matrix(A, A_form)
     A.assemble()
 
     B.zeroEntries()
-    fem.petsc.assemble_matrix_block(B, B_form)
+    fem.petsc.assemble_matrix(B, B_form)
     B.assemble()
 
     # Construct inactive set on displacement.
@@ -544,7 +531,7 @@ for i_t, t in enumerate(ts):
     u_restrict = np.setdiff1d(u_inactive_set, bc_dofs_u_all)
 
     # Construct inactive set on damage.
-    alpha_restrict = inactive_damage_dofs(alpha, alpha_lb, b_alpha, bc_dofs_alpha_all)
+    alpha_restrict = inactive_damage_dofs(alpha, alpha_lb, damage_problem.b, bc_dofs_alpha_all)
 
     restriction = Restriction([V_u, V_alpha], [u_restrict, alpha_restrict])
 
@@ -582,6 +569,7 @@ for i_t, t in enumerate(ts):
 #
 # Let's check the total, elastic and dissipated energies visually.
 # +
+plt.figure()
 (p3,) = plt.plot(energies[:, 0], energies[:, 1] + energies[:, 2], "ko", linewidth=2, label="Total")
 (p1,) = plt.plot(energies[:, 0], energies[:, 1], "b*", linewidth=2, label="Elastic")
 (p2,) = plt.plot(energies[:, 0], energies[:, 2], "r^", linewidth=2, label="Dissipated")
@@ -599,6 +587,7 @@ plt.show()
 # onset of damage. All eigenvalues are positive, and consequently all states
 # found are stable according to the criteria.
 # +
+plt.figure()
 fig = plt.plot(eigenvalues[:, 0], eigenvalues[:, 1], "go", label="Eigenvalues")
 plt.xlabel("Displacement")
 plt.ylabel(r"$\lambda_0$")
@@ -610,6 +599,7 @@ plt.show()
 # We can also plot also the force displacement diagram and color each point in
 # green if stable or red if unstable.
 # +
+plt.figure()
 for i, eigenvalue in enumerate(eigenvalues):
     color = "green" if eigenvalue[1] > 0.0 else "red"
     plt.scatter(ts[i], forces[i], marker="o", color=color)

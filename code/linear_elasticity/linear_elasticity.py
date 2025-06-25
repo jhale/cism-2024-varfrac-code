@@ -74,7 +74,7 @@ lc = 0.05
 dist_min = 0.1
 dist_max = 0.3
 comm = MPI.COMM_WORLD
-msh, mt, ft, _, _ = generate_mesh_with_crack(
+mesh_data, _, _ = generate_mesh_with_crack(
     comm,
     Lcrack=Lcrack,
     Ly=Ly,
@@ -84,6 +84,7 @@ msh, mt, ft, _, _ = generate_mesh_with_crack(
     dist_max=dist_max,  # radius of the transition zone
     verbosity=1,
 )
+msh = mesh_data.mesh
 
 # %% [markdown]
 # To plot the mesh we use `pyvista` see:
@@ -277,7 +278,7 @@ sigma_iso = 1.0 / 3.0 * ufl.tr(sigma(eps(uh))) * ufl.Identity(len(uh))
 sigma_dev = sigma(eps(uh)) - sigma_iso
 von_mises = ufl.sqrt(3.0 / 2.0 * ufl.inner(sigma_dev, sigma_dev))
 V_von_mises = fem.functionspace(msh, ("DG", 0))
-stress_expr = fem.Expression(von_mises, V_von_mises.element.interpolation_points())
+stress_expr = fem.Expression(von_mises, V_von_mises.element.interpolation_points)
 vm_stress = fem.Function(V_von_mises)
 vm_stress.interpolate(stress_expr)
 
