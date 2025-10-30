@@ -93,9 +93,6 @@ msh = mesh_data.mesh
 # %%
 import pyvista  # noqa: E402
 
-pyvista.start_xvfb(wait=0.1)
-pyvista.set_jupyter_backend("static")
-
 vtk_mesh = plot.vtk_mesh(msh)
 grid = pyvista.UnstructuredGrid(*vtk_mesh)
 plotter = pyvista.Plotter()
