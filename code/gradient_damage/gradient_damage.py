@@ -101,6 +101,7 @@ sys.path.append("../utils/")
 import pyvista
 import sympy
 from evaluate_on_points import evaluate_on_points
+from plots import plot_damage_state
 
 # + [markdown]
 # ## Mesh
