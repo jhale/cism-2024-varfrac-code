@@ -4,5 +4,5 @@ sympy
 fenics-dolfinx>=0.10.0
 gmsh
 pyvista
-dolfiny@git+https://github.com/fenics-dolfiny/dolfiny
+dolfiny@git+https://github.com/fenics-dolfiny/dolfiny@v0.10.0
 ruff
