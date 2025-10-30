@@ -52,9 +52,6 @@ sys.path.append("../utils/")
 import pyvista
 from evaluate_on_points import evaluate_on_points
 from plots import plot_damage_state
-from pyvista.utilities.xvfb import start_xvfb
-
-start_xvfb(wait=0.5)
 
 # + [markdown]
 # ## Mesh
