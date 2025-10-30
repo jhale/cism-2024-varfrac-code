@@ -28,7 +28,7 @@ def solve_elasticity(
     dist_max=0.3,
     verbosity=10,
 ):
-    msh, mt, ft = generate_mesh_with_crack(
+    msh, mt, _ = generate_mesh_with_crack(
         Lcrack=Lcrack,
         Lx=Lx,
         Ly=Ly,
