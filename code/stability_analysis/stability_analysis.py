@@ -94,9 +94,6 @@ import matplotlib.pyplot as plt
 from inactive_set import inactive_damage_dofs
 from meshes import generate_bar_mesh
 from plots import plot_damage_state
-from pyvista.utilities.xvfb import start_xvfb
-
-start_xvfb(wait=0.5)
 
 # + [markdown]
 # ## Mesh
