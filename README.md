@@ -11,7 +11,8 @@ The git repository can be found at https://github.com/jhale/cism-2024-varfrac-co
 
 ## Updates
 
-- 11/2025: Update for DOLFINx `v0.10.0`.
+- 11/2025: Update for DOLFINx `v0.10.0`. The current build is only compatible
+  with the stable version of DOLFINx.
 - 06/2025: Update for DOLFINx `v0.10.0.dev0`, i.e. the current build is only
   compatible with the nightly/development version of DOLFINx.
 - 12/2024; Bug fixes in reduced space construction in stability solver.
@@ -32,26 +33,26 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
 2. Pull the DOLFINx laboratory image:
 
-       docker pull dolfinx/lab:nightly
+       docker pull dolfinx/lab:v0.10.0-r1
 
 3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell:
 
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:nightly
+       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.10.0-r1
 
 4. (Windows Powershell). Start a DOLFINx laboratory container using
    Powershell: 
        
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v "${pwd}:/shared" -p 8888:8888 -w /shared dolfinx/lab:nightly
+       docker run -ti -v "${pwd}:/shared" -p 8888:8888 -w /shared dolfinx/lab:v0.10.0-r1
 
 4. (Windows cmd). Start a DOLFINx laboratory container using Windows cmd.
        
        mkdir %HOMEPATH%\cism-varfrac-course
        cd %HOMEPATH%\cism-varfrac-course
-       docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:nightly
+       docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.10.0-r1
 
 5. A URL e.g.
    `http://127.0.0.1:8888/lab?token=544f7380ab06eb1d175d8c2b35a362e7fd7a29471b56818c`
@@ -160,7 +161,7 @@ of the MIT license.
 
 To build this Jupyter book run:
 
-    docker run -v $(pwd):/shared -w /shared -ti --entrypoint /bin/bash dolfinx/lab:nightly
+    docker run -v $(pwd):/shared -w /shared -ti --entrypoint /bin/bash dolfinx/lab:v0.10.0-r1
     pip install -r requirements-docs.txt
     export PYVISTA_OFF_SCREEN=true
     export PYVISTA_JUPYTER_BACKEND=html
