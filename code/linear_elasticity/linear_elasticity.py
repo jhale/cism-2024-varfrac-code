@@ -93,9 +93,6 @@ msh = mesh_data.mesh
 # %%
 import pyvista  # noqa: E402
 
-pyvista.start_xvfb(wait=0.1)
-pyvista.set_jupyter_backend("static")
-
 vtk_mesh = plot.vtk_mesh(msh)
 grid = pyvista.UnstructuredGrid(*vtk_mesh)
 plotter = pyvista.Plotter()
@@ -244,7 +241,11 @@ def L(v):
 
 # %%
 problem = fem.petsc.LinearProblem(
-    a(u, v), L(v), bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"}
+    a(u, v),
+    L(v),
+    bcs=bcs,
+    petsc_options_prefix="elasticity_problem_",
+    petsc_options={"ksp_type": "preonly", "pc_type": "lu"},
 )
 uh = problem.solve()
 uh.name = "displacement"

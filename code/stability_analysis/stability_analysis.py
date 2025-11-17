@@ -63,12 +63,12 @@
 # We begin by importing the required Python modules.
 #
 # Here we use will use the restriction functionality of
-# [dolfiny](https://github.com/michalhabera/dolfiny).
+# [dolfiny](https://github.com/fenics-dolfiny/dolfiny).
 #
 # You can install dolfiny in your container by opening a shell
 # and running:
 #
-#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@v0.9.0
+#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@release-v0.10.0
 #
 # +
 import sys
@@ -94,9 +94,6 @@ import matplotlib.pyplot as plt
 from inactive_set import inactive_damage_dofs
 from meshes import generate_bar_mesh
 from plots import plot_damage_state
-from pyvista.utilities.xvfb import start_xvfb
-
-start_xvfb(wait=0.5)
 
 # + [markdown]
 # ## Mesh
@@ -117,9 +114,6 @@ msh = mesh_data.mesh
 ft = mesh_data.facet_tags
 
 import pyvista  # noqa: E402
-
-pyvista.start_xvfb(wait=0.1)
-pyvista.set_jupyter_backend("static")
 
 vtk_mesh = plot.vtk_mesh(msh)
 grid = pyvista.UnstructuredGrid(*vtk_mesh)
@@ -332,11 +326,12 @@ energy = total_energy(u, alpha)
 # +
 E_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u, J=E_u_u)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_u, u, bcs=bcs_u, petsc_options_prefix="elasticity_"
+)
 
 # Setup linear elasticity problem and solve
 solver_u_snes = elastic_problem.solver
-solver_u_snes.setOptionsPrefix("elasticity_")
 
 opts = PETSc.Options()
 opts["elasticity_snes_type"] = "ksponly"
@@ -351,11 +346,12 @@ solver_u_snes.setFromOptions()
 E_alpha = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
 E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 
-damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_alpha, alpha, bcs=bcs_alpha, J=E_alpha_alpha, petsc_options_prefix="damage_"
+)
 
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = damage_problem.solver
-solver_alpha_snes.setOptionsPrefix("damage_")
 solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 
 opts["damage_snes_type"] = "vinewtonrsls"

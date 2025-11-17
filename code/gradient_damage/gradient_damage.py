@@ -102,9 +102,6 @@ import pyvista
 import sympy
 from evaluate_on_points import evaluate_on_points
 from plots import plot_damage_state
-from pyvista.utilities.xvfb import start_xvfb
-
-start_xvfb(wait=0.5)
 
 # + [markdown]
 # ## Mesh
@@ -361,7 +358,9 @@ total_energy = elastic_energy + dissipated_energy - external_work
 # +
 E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_u, u, J=E_u_u, bcs=bcs_u, petsc_options_prefix="elastic_problem_"
+)
 
 # create PETSc options to have better control over the solver arguments
 opts = PETSc.Options()
@@ -398,7 +397,9 @@ E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 
 # We now set up the PETSc solver using petsc4py, a fully featured Python
 # wrapper around PETSc.
-damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_alpha, alpha, bcs=bcs_alpha, J=E_alpha_alpha, petsc_options_prefix="damage_problem_"
+)
 
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = damage_problem.solver

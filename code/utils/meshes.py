@@ -1,6 +1,6 @@
 import gmsh
 
-from dolfinx.io import gmshio
+from dolfinx.io import gmsh as gmshio
 
 
 def generate_mesh_with_crack(
