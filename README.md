@@ -11,6 +11,7 @@ The git repository can be found at https://github.com/jhale/cism-2024-varfrac-co
 
 ## Updates
 
+- 11/2025: Update for DOLFINx `v0.10.0`.
 - 06/2025: Update for DOLFINx `v0.10.0.dev0`, i.e. the current build is only
   compatible with the nightly/development version of DOLFINx.
 - 12/2024; Bug fixes in reduced space construction in stability solver.
@@ -192,13 +193,3 @@ then be converted to e.g. notebooks on demand. To convert legacy notebooks e.g.
 which will create a file `notebook.py` which you can then edit with any text
 editor. For more information see
 [here](https://jupytext.readthedocs.io/en/latest/formats-scripts.html#).
-
-### pyvista on ARM
-
-To install pyvista in ARM docker:
-
-    python3 -m pip install "https://github.com/scientificcomputing/vtk-aarch64/releases/download/v9.4.2-py3.12-more-flags/vtk-9.4.2-cp312-cp312-linux_aarch64.whl"
-    python3 -m pip install pyvista
-
-This is not necessary when using the `dolfinx/lab` containers which already
-include these packages.
