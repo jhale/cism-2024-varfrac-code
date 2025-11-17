@@ -19,8 +19,6 @@ jobs:
     env:
       PYVISTA_OFF_SCREEN: true
       PYVISTA_JUPYTER_BACKEND: "html"
-      DISPLAY: ":99.0"
-      XDG_RUNTIME_DIR: "/tmp"
     
     steps:
       - uses: actions/checkout@v4
