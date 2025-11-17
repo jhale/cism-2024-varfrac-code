@@ -249,7 +249,9 @@ total_energy += very_weak_springs_to_block_rigid_body_modes
 # +
 E_u = ufl.derivative(total_energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_u, u, bcs=bcs_u, petsc_options_prefix="elastic_"
+)
 
 # Create Newton solver and solve
 solver_u_snes = elastic_problem.solver
@@ -275,7 +277,9 @@ E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 # We now set up the PETSc solver using petsc4py, a fully featured Python
 # wrapper around PETSc.
 # +
-damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_alpha, alpha, bcs=bcs_alpha, J=E_alpha_alpha, petsc_options_prefix="damage_"
+)
 
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = damage_problem.solver

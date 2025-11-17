@@ -241,7 +241,11 @@ def L(v):
 
 # %%
 problem = fem.petsc.LinearProblem(
-    a(u, v), L(v), bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"}
+    a(u, v),
+    L(v),
+    bcs=bcs,
+    petsc_options_prefix="elasticity_problem_",
+    petsc_options={"ksp_type": "preonly", "pc_type": "lu"},
 )
 uh = problem.solve()
 uh.name = "displacement"

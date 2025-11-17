@@ -115,7 +115,6 @@ ft = mesh_data.facet_tags
 
 import pyvista  # noqa: E402
 
-pyvista.start_xvfb(wait=0.1)
 pyvista.set_jupyter_backend("static")
 
 vtk_mesh = plot.vtk_mesh(msh)
@@ -329,11 +328,12 @@ energy = total_energy(u, alpha)
 # +
 E_u = ufl.derivative(energy, u, ufl.TestFunction(V_u))
 E_u_u = ufl.derivative(E_u, u, ufl.TrialFunction(V_u))
-elastic_problem = dolfinx.fem.petsc.NonlinearProblem(E_u, u, bcs_u, J=E_u_u)
+elastic_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_u, u, bcs=bcs_u, petsc_options_prefix="elasticity_"
+)
 
 # Setup linear elasticity problem and solve
 solver_u_snes = elastic_problem.solver
-solver_u_snes.setOptionsPrefix("elasticity_")
 
 opts = PETSc.Options()
 opts["elasticity_snes_type"] = "ksponly"
@@ -348,11 +348,12 @@ solver_u_snes.setFromOptions()
 E_alpha = ufl.derivative(energy, alpha, ufl.TestFunction(V_alpha))
 E_alpha_alpha = ufl.derivative(E_alpha, alpha, ufl.TrialFunction(V_alpha))
 
-damage_problem = dolfinx.fem.petsc.NonlinearProblem(E_alpha, alpha, bcs_alpha, J=E_alpha_alpha)
+damage_problem = dolfinx.fem.petsc.NonlinearProblem(
+    E_alpha, alpha, bcs=bcs_alpha, J=E_alpha_alpha, petsc_options_prefix="damage_"
+)
 
 # Create Newton variational inequality solver and solve
 solver_alpha_snes = damage_problem.solver
-solver_alpha_snes.setOptionsPrefix("damage_")
 solver_alpha_snes.setVariableBounds(alpha_lb.x.petsc_vec, alpha_ub.x.petsc_vec)
 
 opts["damage_snes_type"] = "vinewtonrsls"
