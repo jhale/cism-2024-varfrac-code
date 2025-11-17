@@ -63,12 +63,12 @@
 # We begin by importing the required Python modules.
 #
 # Here we use will use the restriction functionality of
-# [dolfiny](https://github.com/michalhabera/dolfiny).
+# [dolfiny](https://github.com/fenics-dolfiny/dolfiny).
 #
 # You can install dolfiny in your container by opening a shell
 # and running:
 #
-#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@v0.9.0
+#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@release-v0.10.0
 #
 # +
 import sys
@@ -114,8 +114,6 @@ msh = mesh_data.mesh
 ft = mesh_data.facet_tags
 
 import pyvista  # noqa: E402
-
-pyvista.set_jupyter_backend("static")
 
 vtk_mesh = plot.vtk_mesh(msh)
 grid = pyvista.UnstructuredGrid(*vtk_mesh)
