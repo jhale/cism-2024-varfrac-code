@@ -105,7 +105,7 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
        try:
            import dolfinx
        except ImportError:
-           !wget "https://fem-on-colab.github.io/releases/fenicsx-install-real.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh"
+           !wget "https://fem-on-colab.github.io/releases/fenicsx-install-release-real.sh" -O "/tmp/fenicsx-install.sh" && bash "/tmp/fenicsx-install.sh"
        import dolfinx
 
     and press `Shift+Enter`. You should see output from the install process and
