@@ -62,14 +62,6 @@
 #
 # We begin by importing the required Python modules.
 #
-# Here we use will use the restriction functionality of
-# [dolfiny](https://github.com/fenics-dolfiny/dolfiny).
-#
-# You can install dolfiny in your container by opening a shell
-# and running:
-#
-#     pip install git+https://github.com/fenics-dolfiny/dolfiny.git@release-v0.10.0
-#
 # +
 import sys
 
@@ -77,7 +69,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 import numpy as np
-from dolfiny.restriction import Restriction
+from restriction import Restriction
 from slepc4py import SLEPc
 
 import basix
