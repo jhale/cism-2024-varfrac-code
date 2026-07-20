@@ -7,9 +7,9 @@
 # dolfiny git: 3bb3a68f83c81c66d91e0ba9c834d419adef5dc5
 from petsc4py import PETSc
 
-import dolfinx
-
 import numpy as np
+
+import dolfinx
 
 
 class Restriction:
