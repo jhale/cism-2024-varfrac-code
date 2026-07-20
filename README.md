@@ -154,6 +154,10 @@ This work includes elements from [NewFrac FEniCSx
 training](https://newfrac.gitlab.io/newfrac-fenicsx-training/) under the terms
 of the MIT license.
 
+This work includes the `Restriction` class from
+[dolfiny](https://github.com/fenics-dolfiny/dolfiny) under the terms of the
+LGPLv3 or later license.
+
 ## Developer instructions
 
 ### Building
