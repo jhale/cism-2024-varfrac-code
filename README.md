@@ -11,10 +11,9 @@ The git repository can be found at https://github.com/jhale/cism-2024-varfrac-co
 
 ## Updates
 
-- 11/2025: Update for DOLFINx `v0.10.0`. The current build is only compatible
-  with the stable version of DOLFINx.
-- 06/2025: Update for DOLFINx `v0.10.0.dev0`, i.e. the current build is only
-  compatible with the nightly/development version of DOLFINx.
+- 07/2026: Update for DOLFINx `v0.11.0`.
+- 11/2025: Update for DOLFINx `v0.10.0`.
+- 06/2025: Update for DOLFINx `v0.10.0.dev0`.
 - 12/2024; Bug fixes in reduced space construction in stability solver.
 - 11/2024: Update for DOLFINx `v0.9.0`.
 
