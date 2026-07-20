@@ -32,26 +32,26 @@ provide instructions for [Google Colab](https://colab.research.google.com) and
 
 2. Pull the DOLFINx laboratory image:
 
-       docker pull dolfinx/lab:v0.10.0-r1
+       docker pull dolfinx/lab:v0.11.0
 
 3. (macOS, Linux). Start a DOLFINx laboratory container using a Unix-like shell:
 
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.10.0-r1
+       docker run -ti -v "$(pwd)":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.11.0
 
 4. (Windows Powershell). Start a DOLFINx laboratory container using
    Powershell: 
        
        mkdir ~/cism-varfrac-course
        cd ~/cism-varfrac-course
-       docker run -ti -v "${pwd}:/shared" -p 8888:8888 -w /shared dolfinx/lab:v0.10.0-r1
+       docker run -ti -v "${pwd}:/shared" -p 8888:8888 -w /shared dolfinx/lab:v0.11.0
 
 4. (Windows cmd). Start a DOLFINx laboratory container using Windows cmd.
        
        mkdir %HOMEPATH%\cism-varfrac-course
        cd %HOMEPATH%\cism-varfrac-course
-       docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.10.0-r1
+       docker run -ti -v "%cd%":/shared -p 8888:8888 -w /shared dolfinx/lab:v0.11.0
 
 5. A URL e.g.
    `http://127.0.0.1:8888/lab?token=544f7380ab06eb1d175d8c2b35a362e7fd7a29471b56818c`
